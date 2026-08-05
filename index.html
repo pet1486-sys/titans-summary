@@ -283,7 +283,19 @@
       }
     });
 
-    const shippingType = document.getElementById('shippingType').value;
+    // ตรวจสอบเงื่อนไขยอดรวมเกิน 1460 บาท เพื่อสลับเป็นจัดส่งฟรีอัตโนมัติ
+    const shippingTypeSelect = document.getElementById('shippingType');
+    const feeBox = document.getElementById('shippingFeeBox');
+
+    if (subtotal >= 1460) {
+      shippingTypeSelect.value = 'free';
+      feeBox.style.display = 'none';
+    } else {
+      shippingTypeSelect.value = 'custom';
+      feeBox.style.display = 'block';
+    }
+
+    const shippingType = shippingTypeSelect.value;
     const shipping = shippingType === 'free' ? 0 : (parseFloat(document.getElementById('shippingFee').value) || 0);
     const payment = document.getElementById('paymentType').value;
     const grandTotal = subtotal + shipping;
