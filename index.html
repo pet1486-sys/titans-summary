@@ -23,10 +23,20 @@
     input, select { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; /* ป้องกัน iOS ซูมเวลากดช่องพิมพ์ */ }
     
     /* สไตล์แถวคีย์สินค้า */
-    .item-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
-    .search-wrapper { position: relative; flex: 2; }
-    .item-qty { flex: 1; max-width: 80px; }
-    .btn-remove { background: #ff4d4d; color: white; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; height: 38px; }
+    .item-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: flex-start; }
+    .search-wrapper { position: relative; flex: 1; min-width: 0; }
+    
+    /* ชุดปุ่มเพิ่ม-ลดจำนวน */
+    .qty-wrapper { display: flex; align-items: center; gap: 2px; }
+    .qty-btn { 
+      background: #e8f0fe; color: #1a73e8; border: 1px solid #1a73e8; 
+      border-radius: 6px; width: 32px; height: 38px; font-size: 1.1rem; 
+      font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .qty-btn:active { background: #d2e3fc; }
+    .item-qty { width: 45px !important; text-align: center; padding: 8px 2px !important; font-weight: bold; }
+    
+    .btn-remove { background: #ff4d4d; color: white; border: none; border-radius: 6px; padding: 8px 10px; cursor: pointer; height: 38px; }
     
     /* กล่องดรอปดาวน์สำหรับมือถือ (Custom Suggestions) */
     .suggestions-list {
@@ -225,11 +235,22 @@
     }
   });
 
+  // ฟังก์ชันปรับจำนวนสินค้าด้วยปุ่ม + และ -
+  function changeQty(qtyInputId, delta) {
+    const qtyInput = document.getElementById(qtyInputId);
+    let currentVal = parseInt(qtyInput.value) || 1;
+    currentVal += delta;
+    if (currentVal < 1) currentVal = 1;
+    qtyInput.value = currentVal;
+    updateSummary();
+  }
+
   function addItemRow(defaultName = '', defaultQty = 1) {
     const container = document.getElementById('itemsContainer');
     const randomId = Date.now() + Math.random().toString(36).substr(2, 4);
     const inputId = 'item_input_' + randomId;
     const listId = 'list_' + randomId;
+    const qtyId = 'qty_' + randomId;
 
     const div = document.createElement('div');
     div.className = 'item-row';
@@ -239,7 +260,11 @@
         <input type="text" id="${inputId}" class="item-name" placeholder="พิมพ์ชื่อสินค้า..." value="${defaultName}" autocomplete="off" oninput="handleSearchInput(this, '${listId}')">
         <div id="${listId}" class="suggestions-list"></div>
       </div>
-      <input type="number" class="item-qty" value="${defaultQty}" min="1" placeholder="จำนวน" oninput="updateSummary()">
+      <div class="qty-wrapper">
+        <button type="button" class="qty-btn" onclick="changeQty('${qtyId}', -1)">-</button>
+        <input type="number" id="${qtyId}" class="item-qty" value="${defaultQty}" min="1" oninput="updateSummary()">
+        <button type="button" class="qty-btn" onclick="changeQty('${qtyId}', 1)">+</button>
+      </div>
       <button class="btn-remove" onclick="removeRow('row_${randomId}')">✕</button>
     `;
     container.appendChild(div);
@@ -272,7 +297,6 @@
     updateSummary();
   }
 
-  // ฟังก์ชันเคลียร์บิลเพื่อเริ่มรายการใหม่
   function clearBill() {
     document.getElementById('itemsContainer').innerHTML = '';
     document.getElementById('outOfStockContainer').innerHTML = '';
