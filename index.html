@@ -33,14 +33,10 @@
     .btn-copy { background: #34a853; color: white; margin-top: 10px; font-size: 0.95rem; }
     .btn-copy:hover { background: #2d8e47; }
     
-    /* กล่องข้อความสีฟ้า */
     .preview-box { background: #1d72f3; color: white; padding: 18px; border-radius: 12px; font-size: 1.05rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; min-height: 120px; }
-    .file-upload { background: #f8f9fa; padding: 10px; border-radius: 6px; text-align: center; border: 1px dashed #ccc; margin-bottom: 15px; position: relative; }
-    
+    .status-bar { background: #e8f0fe; color: #1a73e8; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; margin-bottom: 15px; }
     .out-of-stock-section { margin-top: 15px; padding-top: 15px; border-top: 2px dashed #ffcdd2; }
     .preview-group { margin-bottom: 20px; }
-    
-    .btn-clear { background: none; border: none; color: #d93025; font-size: 0.75rem; text-decoration: underline; cursor: pointer; margin-top: 5px; }
   </style>
 </head>
 <body>
@@ -50,14 +46,8 @@
   <div class="card">
     <h2>1. คีย์ข้อมูลรายการ</h2>
     
-    <!-- ปุ่มอัปโหลด Excel + ระบบจำข้อมูล -->
-    <div class="file-upload">
-      <label style="cursor:pointer; margin:0; display:block;">
-        📂 อัปโหลดไฟล์ <b>SKU.xlsx</b> เพื่ออัปเดตราคา/สต็อก
-        <input type="file" id="excelFile" accept=".xlsx, .xls" style="display:none;" onchange="loadExcel(event)">
-      </label>
-      <div id="fileStatus" style="font-size: 0.8rem; color: #1a73e8; font-weight: bold; margin-top: 5px;">กำลังตรวจสอบข้อมูล...</div>
-      <button class="btn-clear" onclick="clearSavedData()">ล้างข้อมูลสินค้าที่บันทึกไว้</button>
+    <div class="status-bar" id="statusText">
+      ⏳ กำลังดึงข้อมูลจากไฟล์ SKU.xlsx...
     </div>
 
     <!-- รายการสินค้าที่มีพร้อมส่ง -->
@@ -74,7 +64,7 @@
 
     <hr style="margin: 15px 0; border: none; border-top: 1px solid #eee;">
 
-    <!-- รายรายละเอียดค่าส่ง/ชำระเงิน -->
+    <!-- รายละเอียดค่าส่ง/ชำระเงิน -->
     <div style="display: flex; gap: 10px;">
       <div class="form-group" style="flex:1;">
         <label>ค่าจัดส่ง (บาท):</label>
@@ -111,68 +101,32 @@
 </div>
 
 <script>
-  // ข้อมูลเริ่มต้นสำรอง
-  let productDatabase = [
-    { Name: "EU-52", Price: 220 },
-    { Name: "กาวปะMR", Price: 260 },
-    { Name: "จุ๊บขันนอกms525", Price: 150 },
-    { Name: "EU 42มิล", Price: 220 }
-  ];
+  let productDatabase = [];
 
-  // 1. โหลดข้อมูลที่เคยบันทึกไว้ใน localStorage
-  function loadSavedProductDatabase() {
-    const savedData = localStorage.getItem('myProductSKU');
-    if (savedData) {
-      try {
-        productDatabase = JSON.parse(savedData);
-        document.getElementById('fileStatus').innerText = `✅ โหลดข้อมูลที่บันทึกไว้แล้ว (${productDatabase.length} รายการ)`;
-      } catch (e) {
-        console.error("Failed to parse saved data");
-      }
-    } else {
-      document.getElementById('fileStatus').innerText = `ℹ️ ใช้ข้อมูลเริ่มต้น (ยังไม่อัปโหลดไฟล์)`;
-    }
-    updateDatalist();
-  }
-
-  // 2. อ่านไฟล์ Excel และ บันทึกลง localStorage ถาวร
-  function loadExcel(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, {type: 'array'});
+  // ดึงข้อมูลตรงจาก SKU.xlsx อัตโนมัติเมื่อเปิดเว็บ
+  async function fetchExcelDirectly() {
+    try {
+      const response = await fetch('SKU.xlsx');
+      if (!response.ok) throw new Error('Network error');
+      const arrayBuffer = await response.arrayBuffer();
+      
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(sheet);
 
-      if(jsonData.length > 0 && jsonData[0].Name && jsonData[0].Price !== undefined) {
+      if (jsonData.length > 0) {
         productDatabase = jsonData.map(item => ({
-          Name: String(item.Name).trim(),
+          Name: String(item.Name || '').trim(),
           Price: parseFloat(item.Price) || 0
-        }));
+        })).filter(p => p.Name !== '');
 
-        // บันทึกลง localStorage ของเบราว์เซอร์
-        localStorage.setItem('myProductSKU', JSON.stringify(productDatabase));
-        
-        document.getElementById('fileStatus').innerText = `✅ อัปเดตและบันทึกข้อมูลสำเร็จ! (${productDatabase.length} รายการ)`;
+        document.getElementById('statusText').innerText = `✅ โหลดข้อมูลจาก SKU.xlsx สำเร็จ (${productDatabase.length} รายการ)`;
         updateDatalist();
         updateSummary();
-        alert(`บันทึกข้อมูลสินค้าเรียบร้อยแล้ว (${productDatabase.length} รายการ)\nต่อไปนี้ไม่ต้องกดอัปโหลดไฟล์อีกแล้วครับ!`);
-      } else {
-        alert("โครงสร้างไฟล์ไม่ถูกต้อง ต้องมีคอลัมน์ Name และ Price ครับ");
       }
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
-  // ล้างข้อมูลที่บันทึกไว้
-  function clearSavedData() {
-    if (confirm("คุณต้องการล้างข้อมูลสินค้าที่บันทึกไว้ใช่หรือไม่?")) {
-      localStorage.removeItem('myProductSKU');
-      alert("ล้างข้อมูลแล้ว ระบบจะกลับไปใช้ข้อมูลเริ่มต้น");
-      location.reload();
+    } catch (error) {
+      console.error('Fetch Excel Failed:', error);
+      document.getElementById('statusText').innerHTML = `⚠️ อ่านไฟล์ SKU.xlsx ไม่สำเร็จ (โปรดตรวจสอบว่าวางไฟล์ไว้โฟลเดอร์เดียวกันแล้ว)`;
     }
   }
 
@@ -291,9 +245,8 @@
     });
   }
 
-  // ทำงานทันทีเมื่อเปิดหน้าเว็บ
   window.onload = function() {
-    loadSavedProductDatabase();
+    fetchExcelDirectly();
     addItemRow('EU-52', 1);
     addItemRow('กาวปะMR', 1);
     addOutOfStockRow('จุ๊บขันนอกms525');
