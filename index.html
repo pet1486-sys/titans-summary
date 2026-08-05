@@ -14,7 +14,9 @@
     @media (max-width: 768px) { .container { grid-template-columns: 1fr; } body { padding: 10px; } }
     
     .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    h2 { margin-top: 0; color: #1a73e8; font-size: 1.1rem; }
+    
+    .header-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    h2 { margin: 0; color: #1a73e8; font-size: 1.1rem; }
     
     .form-group { margin-bottom: 12px; }
     label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.85rem; color: #555; }
@@ -56,6 +58,10 @@
     .btn-add-out { background: #fce8e6; color: #d93025; border: 1px dashed #ea4335; }
     .btn-add-out:hover { background: #fad2cf; }
     
+    /* ปุ่มเคลียร์บิล */
+    .btn-clear-bill { background: #fef7e0; color: #b06000; border: 1px solid #f9ab00; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; cursor: pointer; }
+    .btn-clear-bill:hover { background: #feefc3; }
+
     .btn-copy { background: #34a853; color: white; margin-top: 10px; font-size: 0.95rem; }
     .btn-copy:hover { background: #2d8e47; }
     
@@ -70,7 +76,10 @@
 <div class="container">
   <!-- ฝั่งคีย์ข้อมูล -->
   <div class="card">
-    <h2>1. คีย์ข้อมูลรายการ</h2>
+    <div class="header-group">
+      <h2>1. คีย์ข้อมูลรายการ</h2>
+      <button class="btn-clear-bill" onclick="clearBill()">🧹 เคลียร์บิล</button>
+    </div>
     
     <div class="status-bar" id="statusText">
       ⏳ กำลังดึงข้อมูลจากไฟล์ SKU.xlsx...
@@ -263,6 +272,17 @@
     updateSummary();
   }
 
+  // ฟังก์ชันเคลียร์บิลเพื่อเริ่มรายการใหม่
+  function clearBill() {
+    document.getElementById('itemsContainer').innerHTML = '';
+    document.getElementById('outOfStockContainer').innerHTML = '';
+    document.getElementById('shippingType').value = 'custom';
+    document.getElementById('shippingFee').value = 50;
+    document.getElementById('paymentType').value = 'เก็บเงินปลายทาง';
+    
+    addItemRow();
+  }
+
   function updateSummary() {
     let orderLines = [];
     let subtotal = 0;
@@ -283,14 +303,13 @@
       }
     });
 
-    // ตรวจสอบเงื่อนไขยอดรวมเกิน 1460 บาท เพื่อสลับเป็นจัดส่งฟรีอัตโนมัติ
     const shippingTypeSelect = document.getElementById('shippingType');
     const feeBox = document.getElementById('shippingFeeBox');
 
     if (subtotal >= 1460) {
       shippingTypeSelect.value = 'free';
       feeBox.style.display = 'none';
-    } else {
+    } else if (shippingTypeSelect.value === 'free' && subtotal < 1460 && orderLines.length > 0) {
       shippingTypeSelect.value = 'custom';
       feeBox.style.display = 'block';
     }
