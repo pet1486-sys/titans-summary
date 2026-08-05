@@ -64,13 +64,20 @@
 
     <hr style="margin: 15px 0; border: none; border-top: 1px solid #eee;">
 
-    <!-- รายละเอียดค่าส่ง/ชำระเงิน -->
-    <div style="display: flex; gap: 10px;">
-      <div class="form-group" style="flex:1;">
+    <!-- ตัวเลือกค่าส่ง และการชำระเงิน -->
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <div class="form-group" style="flex:1; min-width: 140px;">
+        <label>ประเภทค่าจัดส่ง:</label>
+        <select id="shippingType" onchange="toggleShippingInput()">
+          <option value="custom">ระบุค่าจัดส่ง</option>
+          <option value="free">จัดส่งฟรี</option>
+        </select>
+      </div>
+      <div class="form-group" id="shippingFeeBox" style="flex:1; min-width: 100px;">
         <label>ค่าจัดส่ง (บาท):</label>
         <input type="number" id="shippingFee" value="50" oninput="updateSummary()">
       </div>
-      <div class="form-group" style="flex:1.2;">
+      <div class="form-group" style="flex:1.2; min-width: 140px;">
         <label>การชำระเงิน:</label>
         <select id="paymentType" onchange="updateSummary()">
           <option value="เก็บเงินปลายทาง">เก็บเงินปลายทาง</option>
@@ -144,6 +151,17 @@
     return String(str || '').toLowerCase().replace(/\s+/g, '');
   }
 
+  function toggleShippingInput() {
+    const shippingType = document.getElementById('shippingType').value;
+    const feeBox = document.getElementById('shippingFeeBox');
+    if (shippingType === 'free') {
+      feeBox.style.display = 'none';
+    } else {
+      feeBox.style.display = 'block';
+    }
+    updateSummary();
+  }
+
   function addItemRow(defaultName = '', defaultQty = 1) {
     const container = document.getElementById('itemsContainer');
     const rowId = 'row_' + Date.now() + Math.random().toString(36).substr(2, 4);
@@ -202,14 +220,15 @@
       }
     });
 
-    const shipping = parseFloat(document.getElementById('shippingFee').value) || 0;
+    const shippingType = document.getElementById('shippingType').value;
+    const shipping = shippingType === 'free' ? 0 : (parseFloat(document.getElementById('shippingFee').value) || 0);
     const payment = document.getElementById('paymentType').value;
     const grandTotal = subtotal + shipping;
 
     let orderText = "";
     if (orderLines.length > 0) {
       orderText += orderLines.join('\n') + '\n\n';
-      orderText += `ค่าจัดส่ง ${shipping} บ\n`;
+      orderText += shippingType === 'free' ? `จัดส่งฟรี\n` : `ค่าจัดส่ง ${shipping} บ\n`;
       orderText += `รวม ${grandTotal} บ\n`;
       orderText += `${payment}`;
     }
@@ -247,9 +266,7 @@
 
   window.onload = function() {
     fetchExcelDirectly();
-    addItemRow('EU-52', 1);
-    addItemRow('กาวปะMR', 1);
-    addOutOfStockRow('จุ๊บขันนอกms525');
+    addItemRow();
   };
 </script>
 
