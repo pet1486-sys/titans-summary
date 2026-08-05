@@ -10,7 +10,7 @@
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
     .container { max-width: 950px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    @media (max-width: 768px) { .container { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { .container { grid-template-columns: 1fr; } body { padding: 10px; } }
     
     .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
     h2 { margin-top: 0; color: #1a73e8; font-size: 1.1rem; }
@@ -19,11 +19,36 @@
     label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.85rem; color: #555; }
     input, select { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
     
-    .item-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
-    .item-row input[type="text"] { flex: 2; }
-    .item-row input[type="number"] { flex: 1; }
-    .btn-remove { background: #ff4d4d; color: white; border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+    /* สไตล์แถวคีย์สินค้า */
+    .item-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
+    .search-wrapper { position: relative; flex: 2; }
+    .item-qty { flex: 1; max-width: 80px; }
+    .btn-remove { background: #ff4d4d; color: white; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; height: 38px; }
     
+    /* กล่องดรอปดาวน์สำหรับมือถือ (Custom Suggestions) */
+    .suggestions-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #1a73e8;
+      border-radius: 0 0 8px 8px;
+      max-height: 180px;
+      overflow-y: auto;
+      z-index: 999;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      display: none;
+    }
+    .suggestion-item {
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+    }
+    .suggestion-item:last-child { border-bottom: none; }
+    .suggestion-item:hover, .suggestion-item:active { background-color: #e8f0fe; color: #1a73e8; }
+
     .btn { width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 0.95rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
     .btn-add { background: #e8f0fe; color: #1a73e8; border: 1px dashed #1a73e8; }
     .btn-add:hover { background: #d2e3fc; }
@@ -66,7 +91,7 @@
 
     <!-- ตัวเลือกค่าส่ง และการชำระเงิน -->
     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-      <div class="form-group" style="flex:1; min-width: 140px;">
+      <div class="form-group" style="flex:1; min-width: 130px;">
         <label>ประเภทค่าจัดส่ง:</label>
         <select id="shippingType" onchange="toggleShippingInput()">
           <option value="custom">ระบุค่าจัดส่ง</option>
@@ -77,7 +102,7 @@
         <label>ค่าจัดส่ง (บาท):</label>
         <input type="number" id="shippingFee" value="50" oninput="updateSummary()">
       </div>
-      <div class="form-group" style="flex:1.2; min-width: 140px;">
+      <div class="form-group" style="flex:1.2; min-width: 130px;">
         <label>การชำระเงิน:</label>
         <select id="paymentType" onchange="updateSummary()">
           <option value="เก็บเงินปลายทาง">เก็บเงินปลายทาง</option>
@@ -128,23 +153,12 @@
         })).filter(p => p.Name !== '');
 
         document.getElementById('statusText').innerText = `✅ โหลดข้อมูลจาก SKU.xlsx สำเร็จ (${productDatabase.length} รายการ)`;
-        updateDatalist();
         updateSummary();
       }
     } catch (error) {
       console.error('Fetch Excel Failed:', error);
       document.getElementById('statusText').innerHTML = `⚠️ อ่านไฟล์ SKU.xlsx ไม่สำเร็จ (โปรดตรวจสอบว่าวางไฟล์ไว้โฟลเดอร์เดียวกันแล้ว)`;
     }
-  }
-
-  function updateDatalist() {
-    let datalist = document.getElementById('productOptions');
-    if (!datalist) {
-      datalist = document.createElement('datalist');
-      datalist.id = 'productOptions';
-      document.body.appendChild(datalist);
-    }
-    datalist.innerHTML = productDatabase.map(p => `<option value="${p.Name}">`).join('');
   }
 
   function cleanText(str) {
@@ -162,17 +176,64 @@
     updateSummary();
   }
 
+  // ระบบค้นหาและแสดงตัวเลือกที่คล้ายกัน (รองรับมือถือ 100%)
+  function handleSearchInput(input, listId) {
+    const query = cleanText(input.value);
+    const list = document.getElementById(listId);
+    
+    if (!query) {
+      list.style.display = 'none';
+      updateSummary();
+      return;
+    }
+
+    // กรองสินค้าที่ชื่อคล้ายกับที่พิมพ์
+    const matches = productDatabase.filter(p => cleanText(p.Name).includes(query)).slice(0, 8);
+
+    if (matches.length > 0) {
+      list.innerHTML = matches.map(p => `
+        <div class="suggestion-item" onclick="selectSuggestion('${input.id}', '${listId}', '${p.Name}')">
+          ${p.Name} <span style="color:#1a73e8; font-size:0.8rem;">(${p.Price}฿)</span>
+        </div>
+      `).join('');
+      list.style.display = 'block';
+    } else {
+      list.style.display = 'none';
+    }
+    updateSummary();
+  }
+
+  function selectSuggestion(inputId, listId, selectedName) {
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+    input.value = selectedName;
+    list.style.display = 'none';
+    updateSummary();
+  }
+
+  // ปิดดรอปดาวน์เมื่อแตะพื้นที่อื่นบนมือถือ
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.search-wrapper')) {
+      document.querySelectorAll('.suggestions-list').forEach(el => el.style.display = 'none');
+    }
+  });
+
   function addItemRow(defaultName = '', defaultQty = 1) {
     const container = document.getElementById('itemsContainer');
-    const rowId = 'row_' + Date.now() + Math.random().toString(36).substr(2, 4);
+    const randomId = Date.now() + Math.random().toString(36).substr(2, 4);
+    const inputId = 'item_input_' + randomId;
+    const listId = 'list_' + randomId;
 
     const div = document.createElement('div');
     div.className = 'item-row';
-    div.id = rowId;
+    div.id = 'row_' + randomId;
     div.innerHTML = `
-      <input type="text" list="productOptions" class="item-name" placeholder="ชื่อสินค้า..." value="${defaultName}" oninput="updateSummary()" onkeyup="updateSummary()">
-      <input type="number" class="item-qty" value="${defaultQty}" min="1" placeholder="จำนวน" oninput="updateSummary()" onkeyup="updateSummary()">
-      <button class="btn-remove" onclick="removeRow('${rowId}')">✕</button>
+      <div class="search-wrapper">
+        <input type="text" id="${inputId}" class="item-name" placeholder="พิมพ์ชื่อสินค้า..." value="${defaultName}" autocomplete="off" oninput="handleSearchInput(this, '${listId}')">
+        <div id="${listId}" class="suggestions-list"></div>
+      </div>
+      <input type="number" class="item-qty" value="${defaultQty}" min="1" placeholder="จำนวน" oninput="updateSummary()">
+      <button class="btn-remove" onclick="removeRow('row_${randomId}')">✕</button>
     `;
     container.appendChild(div);
     updateSummary();
@@ -180,14 +241,19 @@
 
   function addOutOfStockRow(defaultName = '') {
     const container = document.getElementById('outOfStockContainer');
-    const rowId = 'out_' + Date.now() + Math.random().toString(36).substr(2, 4);
+    const randomId = Date.now() + Math.random().toString(36).substr(2, 4);
+    const inputId = 'out_input_' + randomId;
+    const listId = 'out_list_' + randomId;
 
     const div = document.createElement('div');
     div.className = 'item-row';
-    div.id = rowId;
+    div.id = 'out_' + randomId;
     div.innerHTML = `
-      <input type="text" list="productOptions" class="out-item-name" placeholder="ชื่อสินค้าที่หมด..." value="${defaultName}" oninput="updateSummary()" onkeyup="updateSummary()">
-      <button class="btn-remove" onclick="removeRow('${rowId}')">✕</button>
+      <div class="search-wrapper">
+        <input type="text" id="${inputId}" class="out-item-name" placeholder="พิมพ์ชื่อสินค้าหมด..." value="${defaultName}" autocomplete="off" oninput="handleSearchInput(this, '${listId}')">
+        <div id="${listId}" class="suggestions-list"></div>
+      </div>
+      <button class="btn-remove" onclick="removeRow('out_${randomId}')">✕</button>
     `;
     container.appendChild(div);
     updateSummary();
