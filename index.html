@@ -2,12 +2,13 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- ล็อกการซูมและกำหนดขนาดหน้าจอสำหรับมือถือ -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ระบบสรุปยอดและแจ้งสินค้าหมด</title>
   <!-- โหลด SheetJS สำหรับอ่านไฟล์ Excel -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
-    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: manipulation; }
     body { background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
     .container { max-width: 950px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     @media (max-width: 768px) { .container { grid-template-columns: 1fr; } body { padding: 10px; } }
@@ -17,7 +18,7 @@
     
     .form-group { margin-bottom: 12px; }
     label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.85rem; color: #555; }
-    input, select { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
+    input, select { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; /* ป้องกัน iOS ซูมเวลากดช่องพิมพ์ */ }
     
     /* สไตล์แถวคีย์สินค้า */
     .item-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
@@ -176,7 +177,6 @@
     updateSummary();
   }
 
-  // ระบบค้นหาและแสดงตัวเลือกที่คล้ายกัน (รองรับมือถือ 100%)
   function handleSearchInput(input, listId) {
     const query = cleanText(input.value);
     const list = document.getElementById(listId);
@@ -187,7 +187,6 @@
       return;
     }
 
-    // กรองสินค้าที่ชื่อคล้ายกับที่พิมพ์
     const matches = productDatabase.filter(p => cleanText(p.Name).includes(query)).slice(0, 8);
 
     if (matches.length > 0) {
@@ -211,7 +210,6 @@
     updateSummary();
   }
 
-  // ปิดดรอปดาวน์เมื่อแตะพื้นที่อื่นบนมือถือ
   document.addEventListener('click', function(e) {
     if (!e.target.closest('.search-wrapper')) {
       document.querySelectorAll('.suggestions-list').forEach(el => el.style.display = 'none');
@@ -266,7 +264,6 @@
   }
 
   function updateSummary() {
-    // --- 1. สรุปกล่องที่ 1 (สินค้าสั่งซื้อ) ---
     let orderLines = [];
     let subtotal = 0;
     const itemRows = document.querySelectorAll('#itemsContainer .item-row');
@@ -300,7 +297,6 @@
     }
     document.getElementById('previewOrderText').innerText = orderText || "(ไม่มีรายการสั่งซื้อ)";
 
-    // --- 2. สรุปกล่องที่ 2 (แจ้งสินค้าหมด) ---
     const outRows = document.querySelectorAll('#outOfStockContainer .item-row');
     let outOfStockNames = [];
     outRows.forEach(row => {
