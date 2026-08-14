@@ -10,7 +10,7 @@
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: manipulation; }
     body { background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
-    .container { max-width: 950px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .container { max-width: 980px; margin: 0 auto; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 20px; }
     @media (max-width: 768px) { .container { grid-template-columns: 1fr; } body { padding: 10px; } }
     
     .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
@@ -20,22 +20,26 @@
     
     .form-group { margin-bottom: 12px; }
     label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.85rem; color: #555; }
-    input, select { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; /* ป้องกัน iOS ซูมเวลากดช่องพิมพ์ */ }
+    input, select { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
     
     /* สไตล์แถวคีย์สินค้า */
-    .item-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: flex-start; }
+    .item-row { display: flex; gap: 5px; margin-bottom: 8px; align-items: center; flex-wrap: nowrap; }
     .search-wrapper { position: relative; flex: 1; min-width: 0; }
     
     /* ชุดปุ่มเพิ่ม-ลดจำนวน */
-    .qty-wrapper { display: flex; align-items: center; gap: 2px; }
+    .qty-wrapper { display: flex; align-items: center; gap: 1px; }
     .qty-btn { 
       background: #e8f0fe; color: #1a73e8; border: 1px solid #1a73e8; 
-      border-radius: 6px; width: 32px; height: 38px; font-size: 1.1rem; 
+      border-radius: 6px; width: 30px; height: 38px; font-size: 1.1rem; 
       font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;
     }
     .qty-btn:active { background: #d2e3fc; }
-    .item-qty { width: 45px !important; text-align: center; padding: 8px 2px !important; font-weight: bold; }
+    .item-qty { width: 38px !important; text-align: center; padding: 8px 2px !important; font-weight: bold; }
     
+    /* ช่องส่วนลด 2 ช่อง */
+    .item-disc-unit { width: 52px !important; text-align: center; padding: 8px 2px !important; border-color: #f9ab00 !important; background-color: #fffdf5; font-size: 14px; }
+    .item-disc-total { width: 52px !important; text-align: center; padding: 8px 2px !important; border-color: #e65100 !important; background-color: #fff3e0; font-size: 14px; }
+
     .btn-remove { background: #ff4d4d; color: white; border: none; border-radius: 6px; padding: 8px 10px; cursor: pointer; height: 38px; }
     
     /* กล่องดรอปดาวน์สำหรับมือถือ (Custom Suggestions) */
@@ -79,6 +83,8 @@
     .status-bar { background: #e8f0fe; color: #1a73e8; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; margin-bottom: 15px; }
     .out-of-stock-section { margin-top: 15px; padding-top: 15px; border-top: 2px dashed #ffcdd2; }
     .preview-group { margin-bottom: 20px; }
+    
+    .input-header-labels { display: flex; gap: 5px; font-size: 0.75rem; font-weight: bold; color: #666; margin-bottom: 4px; padding-right: 45px; }
   </style>
 </head>
 <body>
@@ -97,6 +103,15 @@
 
     <!-- รายการสินค้าที่มีพร้อมส่ง -->
     <label style="color:#1a73e8; font-weight:bold;">📦 รายการสินค้าที่มีสั่งซื้อ:</label>
+    
+    <!-- แสดงหัวข้อกำกับคอลัมน์ -->
+    <div class="input-header-labels">
+      <div style="flex:1;">ชื่อสินค้า</div>
+      <div style="width: 102px; text-align: center;">จำนวน</div>
+      <div style="width: 52px; text-align: center; color: #d97706;">ลด/ชิ้น</div>
+      <div style="width: 52px; text-align: center; color: #dc2626;">ลดเหมา</div>
+    </div>
+
     <div id="itemsContainer"></div>
     <button class="btn btn-add" onclick="addItemRow()">+ เพิ่มรายการสินค้าที่สั่งซื้อ</button>
 
@@ -112,7 +127,7 @@
     <!-- ตัวเลือกค่าส่ง และการชำระเงิน -->
     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
       <div class="form-group" style="flex:1; min-width: 130px;">
-        <label>ประเภทค่าจัดส่ง:</label>
+        <label>ประเภทจัดส่ง:</label>
         <select id="shippingType" onchange="toggleShippingInput()">
           <option value="custom">ระบุค่าจัดส่ง</option>
           <option value="free">จัดส่งฟรี</option>
@@ -251,6 +266,8 @@
     const inputId = 'item_input_' + randomId;
     const listId = 'list_' + randomId;
     const qtyId = 'qty_' + randomId;
+    const discUnitId = 'disc_unit_' + randomId;
+    const discTotalId = 'disc_total_' + randomId;
 
     const div = document.createElement('div');
     div.className = 'item-row';
@@ -265,6 +282,8 @@
         <input type="number" id="${qtyId}" class="item-qty" value="${defaultQty}" min="1" oninput="updateSummary()">
         <button type="button" class="qty-btn" onclick="changeQty('${qtyId}', 1)">+</button>
       </div>
+      <input type="number" id="${discUnitId}" class="item-disc-unit" placeholder="ชิ้น" min="0" oninput="updateSummary()" title="ส่วนลดต่อชิ้น">
+      <input type="number" id="${discTotalId}" class="item-disc-total" placeholder="เหมา" min="0" oninput="updateSummary()" title="ส่วนลดตามรายการ">
       <button class="btn-remove" onclick="removeRow('row_${randomId}')">✕</button>
     `;
     container.appendChild(div);
@@ -315,11 +334,19 @@
     itemRows.forEach(row => {
       const nameInput = row.querySelector('.item-name').value.trim();
       const qty = parseInt(row.querySelector('.item-qty').value) || 1;
+      
+      // ดึงส่วนลด 2 ประเภท
+      const discUnit = parseFloat(row.querySelector('.item-disc-unit').value) || 0;
+      const discTotal = parseFloat(row.querySelector('.item-disc-total').value) || 0;
 
       if (nameInput) {
         const found = productDatabase.find(p => cleanText(p.Name) === cleanText(nameInput));
-        const unitPrice = found ? found.Price : 0;
-        const lineTotal = unitPrice * qty;
+        const originalPrice = found ? found.Price : 0;
+        
+        // คำนวณราคา: (ราคาเดิม * จำนวน) - (ส่วนลดต่อชิ้น * จำนวน) - ส่วนลดเหมา
+        let lineTotal = (originalPrice * qty) - (discUnit * qty) - discTotal;
+        if (lineTotal < 0) lineTotal = 0; // ไม่ให้ติดลบ
+
         subtotal += lineTotal;
 
         const qtyText = qty > 1 ? ` x${qty}` : '';
