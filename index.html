@@ -77,9 +77,11 @@
     .btn-copy:hover { background: #2d8e47; }
     
     .preview-box { background: #1d72f3; color: white; padding: 18px; border-radius: 12px; font-size: 1.05rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; min-height: 120px; }
+    .preview-box-internal { background: #5c6bc0; color: white; padding: 18px; border-radius: 12px; font-size: 1.05rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; min-height: 100px; margin-top: 5px; }
+    
     .status-bar { background: #e8f0fe; color: #1a73e8; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; margin-bottom: 15px; }
     .out-of-stock-section { margin-top: 15px; padding-top: 15px; border-top: 2px dashed #ffcdd2; }
-    .preview-group { margin-bottom: 20px; }
+    .preview-group { margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
     
     .input-header-labels { display: flex; gap: 5px; font-size: 0.75rem; font-weight: bold; color: #666; margin-bottom: 4px; padding-right: 45px; }
     .action-button-group { display: flex; gap: 8px; }
@@ -299,7 +301,6 @@ US 58 มม(80แผ่น) = 320
     document.getElementById('mainCard').classList.toggle('show-discount');
   }
 
-  // เปิด-ปิดกล่องวางข้อความด่วน
   function togglePasteBox() {
     const content = document.getElementById('pasteBoxContent');
     const arrow = document.getElementById('pasteArrow');
@@ -315,7 +316,6 @@ US 58 มม(80แผ่น) = 320
     }
   }
 
-  // เปิด-ปิดกล่องข้อความใช้บ่อย
   function togglePresetList() {
     const list = document.getElementById('presetListCompact');
     const arrow = document.getElementById('presetArrow');
@@ -397,9 +397,15 @@ US 58 มม(80แผ่น) = 320
     prevDiv.className = 'preview-group';
     prevDiv.id = 'preview_group_' + sectionId;
     prevDiv.innerHTML = `
-      <label style="font-weight:bold; color:#1a73e8; margin-bottom:5px; display:block;">🔹 กล่องที่ ${sectionCounter}: สรุปยอดสินค้า (ชุดที่ ${sectionCounter})</label>
+      <label style="font-weight:bold; color:#1a73e8; margin-bottom:5px; display:block;">🔹 กล่องที่ ${sectionCounter}: สรุปยอดสินค้า (ส่งให้ลูกค้า)</label>
       <div class="preview-box" id="preview_text_${sectionId}"></div>
-      <button class="btn btn-copy" onclick="copyToClipboard('preview_text_${sectionId}')">📋 คัดลอกกล่องสรุปยอด ชุดที่ ${sectionCounter}</button>
+      <button class="btn btn-copy" onclick="copyToClipboard('preview_text_${sectionId}')">📋 คัดลอกกล่องส่งลูกค้า ชุดที่ ${sectionCounter}</button>
+      
+      <div id="internal_group_${sectionId}" style="display:none; margin-top: 15px;">
+        <label style="font-weight:bold; color:#5c6bc0; margin-bottom:5px; display:block;">🔍 กล่องสำหรับดูเอง (เช็คส่วนลด ชุดที่ ${sectionCounter})</label>
+        <div class="preview-box-internal" id="internal_text_${sectionId}"></div>
+        <button class="btn btn-copy" style="background:#5c6bc0;" onclick="copyToClipboard('internal_text_${sectionId}')">📋 คัดลอกกล่องเช็คยอด</button>
+      </div>
     `;
     previewContainer.appendChild(prevDiv);
 
@@ -586,6 +592,7 @@ US 58 มม(80แผ่น) = 320
         return;
       }
 
+      if (l.startsWith('ส่วนลด')) return;
       if (l.startsWith('รวม') || l.startsWith('รับเท่านี้') || l.startsWith('สินค้าหมด')) return;
 
       let qty = 1;
@@ -603,8 +610,10 @@ US 58 มม(80แผ่น) = 320
     const sections = document.querySelectorAll('.order-section-box');
     sections.forEach(sec => {
       const sectionId = sec.id;
-      let orderLines = [];
-      let subtotal = 0;
+      let customerLines = [];
+      let internalLines = [];
+      let internalSubtotal = 0;
+      let totalDiscount = 0;
 
       const itemRows = sec.querySelectorAll('.item-row');
       itemRows.forEach(row => {
@@ -616,22 +625,37 @@ US 58 มม(80แผ่น) = 320
         if (nameInput) {
           const found = productDatabase.find(p => cleanText(p.Name) === cleanText(nameInput));
           const originalPrice = found ? found.Price : 0;
-          let lineTotal = (originalPrice * qty) - (discUnit * qty) - discTotal;
-          if (lineTotal < 0) lineTotal = 0;
+          
+          const itemDiscount = (discUnit * qty) + discTotal;
+          totalDiscount += itemDiscount;
 
-          subtotal += lineTotal;
+          // ราคาเต็มของรายการนี้
+          const basePrice = originalPrice > 0 ? (originalPrice * qty) : ((originalPrice * qty) - itemDiscount);
+          
+          // ราคาหลังลดสำหรับส่งลูกค้า
+          let netLinePrice = basePrice - itemDiscount;
+          if (netLinePrice < 0) netLinePrice = 0;
+
+          internalSubtotal += basePrice;
           const qtyText = qty > 1 ? ` x${qty}` : '';
-          orderLines.push(`${nameInput}${qtyText} =${lineTotal}`);
+
+          // กล่องลูกค้า: แสดงราคาที่ลดแล้วที่ตัวสินค้าโดยตรง
+          customerLines.push(`${nameInput}${qtyText} =${netLinePrice}`);
+          
+          // กล่องเช็คยอด: แสดงราคาเต็มก่อนลด
+          internalLines.push(`${nameInput}${qtyText} =${basePrice}`);
         }
       });
 
       const shippingTypeSelect = sec.querySelector('.sec-shipping-type');
       const feeBox = sec.querySelector('.sec-shipping-fee-box');
 
-      if (subtotal >= 1460) {
+      const netSubtotal = internalSubtotal - totalDiscount;
+
+      if (netSubtotal >= 1460) {
         shippingTypeSelect.value = 'free';
         feeBox.style.display = 'none';
-      } else if (shippingTypeSelect.value === 'free' && subtotal < 1460 && orderLines.length > 0) {
+      } else if (shippingTypeSelect.value === 'free' && netSubtotal < 1460 && customerLines.length > 0) {
         shippingTypeSelect.value = 'custom';
         feeBox.style.display = 'block';
       }
@@ -642,18 +666,42 @@ US 58 มม(80แผ่น) = 320
       const shipping = isFreeShipping ? 0 : rawShippingFee;
       
       const payment = sec.querySelector('.sec-payment-type').value;
-      const grandTotal = subtotal + shipping;
+      const grandTotal = netSubtotal + shipping;
 
-      let orderText = "";
-      if (orderLines.length > 0) {
-        orderText += orderLines.join('\n') + '\n\n';
-        orderText += isFreeShipping ? `จัดส่งฟรี\n` : `ค่าจัดส่ง ${shipping} บ\n`;
-        orderText += `รวม ${grandTotal} บ\n`;
-        orderText += `${payment}`;
+      // สร้างข้อความกล่องส่งลูกค้า
+      let customerText = "";
+      if (customerLines.length > 0) {
+        customerText += customerLines.join('\n') + '\n\n';
+        customerText += isFreeShipping ? `จัดส่งฟรี\n` : `ค่าจัดส่ง ${shipping} บ\n`;
+        customerText += `รวม ${grandTotal} บ\n`;
+        customerText += `${payment}`;
+      }
+
+      // สร้างข้อความกล่องดูเอง (มีส่วนลดและค่าส่ง)
+      let internalText = "";
+      if (internalLines.length > 0) {
+        internalText += internalLines.join('\n') + '\n\n';
+        internalText += isFreeShipping ? `จัดส่งฟรี\n` : `ค่าจัดส่ง ${shipping} บ\n`;
+        if (totalDiscount > 0) {
+          internalText += `ส่วนลด ${totalDiscount} บ\n`;
+        }
+        internalText += `รวม ${grandTotal} บ\n`;
+        internalText += `${payment}`;
       }
       
       const prevTextEl = document.getElementById('preview_text_' + sectionId);
-      if (prevTextEl) prevTextEl.innerText = orderText || "(ไม่มีรายการสั่งซื้อ)";
+      if (prevTextEl) prevTextEl.innerText = customerText || "(ไม่มีรายการสั่งซื้อ)";
+
+      const internalGroup = document.getElementById('internal_group_' + sectionId);
+      const internalTextEl = document.getElementById('internal_text_' + sectionId);
+      
+      // แสดงกล่องเช็คยอดเฉพาะเมื่อมีการใส่ส่วนลดเข้ามา
+      if (totalDiscount > 0) {
+        internalGroup.style.display = 'block';
+        if (internalTextEl) internalTextEl.innerText = internalText;
+      } else {
+        internalGroup.style.display = 'none';
+      }
     });
 
     const outRows = document.querySelectorAll('#outOfStockContainer .item-row');
