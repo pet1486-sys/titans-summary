@@ -266,18 +266,31 @@ US 58 มม(80แผ่น) = 320
 
   async function fetchExcelDirectly() {
     try {
-      const response = await fetch('SKU.xlsx');
+      // เติม ?v= Timestamp เพื่อบังคับเบราว์เซอร์ให้โหลดไฟล์ใหม่จาก GitHub เสมอ ป้องกันติด Cache
+      const response = await fetch('SKU.xlsx?v=' + new Date().getTime());
       if (!response.ok) throw new Error('Network error');
       const arrayBuffer = await response.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(sheet);
+      
+      let rawData = [];
+      // อ่านข้อมูลจากทุก Sheet ใน Excel
+      workbook.SheetNames.forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(sheet);
+        rawData = rawData.concat(jsonData);
+      });
 
-      if (jsonData.length > 0) {
-        productDatabase = jsonData.map(item => ({
-          Name: String(item.Name || '').trim(),
-          Price: parseFloat(item.Price) || 0
-        })).filter(p => p.Name !== '');
+      if (rawData.length > 0) {
+        productDatabase = rawData.map(item => {
+          // รองรับชื่อคอลัมน์ทั้งแบบตัวพิมพ์เล็ก พิมพ์ใหญ่ และแบบมีเว้นวรรค
+          const nameVal = item.Name || item.name || item['Name '] || item['name '] || '';
+          const priceVal = item.Price || item.price || item['Price '] || item['price '] || 0;
+
+          return {
+            Name: String(nameVal).trim(),
+            Price: parseFloat(priceVal) || 0
+          };
+        }).filter(p => p.Name !== '');
 
         document.getElementById('statusText').innerText = `✅ โหลดข้อมูลจาก SKU.xlsx สำเร็จ (${productDatabase.length} รายการ)`;
         updateSummary();
