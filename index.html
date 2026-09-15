@@ -3,122 +3,198 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>ระบบสรุปยอดและแจ้งสินค้าหมด</title>
+  <title>ระบบสรุปยอดรายการสั่งซื้อ</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: manipulation; }
-    body { background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
+    body { background-color: #f8fafc; margin: 0; padding: 20px; color: #334155; }
     .container { max-width: 980px; margin: 0 auto; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 20px; }
     @media (max-width: 768px) { .container { grid-template-columns: 1fr; } body { padding: 10px; } }
     
-    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .card { background: white; padding: 22px; border-radius: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); }
     
-    .header-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    h2 { margin: 0; color: #1a73e8; font-size: 1.1rem; }
+    .header-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: nowrap; gap: 8px; }
+    h2 { margin: 0; color: #1e40af; font-size: 1rem; white-space: nowrap; }
     
+    .header-btns { display: flex; gap: 6px; flex-shrink: 0; }
+
     .form-group { margin-bottom: 12px; }
-    label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.85rem; color: #555; }
-    input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
+    label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 0.85rem; color: #475569; }
+    input, select, textarea { width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; outline: none; }
+    input:focus, select:focus, textarea:focus { border-color: #3b82f6; }
+
+    /* แถบบิลที่พักไว้ (คลีน มินิมอล) */
+    .draft-bar-container {
+      background: #fefce8;
+      border: 1px solid #fef08a;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .draft-bar-header {
+      font-size: 0.82rem; font-weight: bold; color: #854d0e; margin-bottom: 8px; display: flex; align-items: center; gap: 5px;
+    }
+    .draft-cards-holder {
+      display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px;
+    }
+    .draft-card {
+      background: white; border: 1.5px solid #f59e0b; border-radius: 8px;
+      padding: 6px 12px 6px 10px; cursor: pointer; transition: 0.2s;
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+    .draft-card:hover { background: #fffbeb; border-color: #d97706; }
+    .draft-amount { font-size: 0.9rem; font-weight: bold; color: #d97706; }
+    .draft-delete-btn {
+      background: #fee2e2; border: none; color: #ef4444; font-weight: bold;
+      font-size: 0.75rem; cursor: pointer; border-radius: 50%; width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center; padding: 0;
+    }
+    .draft-delete-btn:hover { background: #fca5a5; color: #b91c1c; }
 
     /* กล่องชุดรายการสั่งซื้อ */
     .order-section-box {
       background: #fafafa;
-      border: 1px solid #e0e0e0;
-      border-left: 5px solid #1a73e8;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 20px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 18px;
       position: relative;
     }
 
-    .item-row { display: flex; gap: 5px; margin-bottom: 8px; align-items: center; flex-wrap: nowrap; }
-    .search-wrapper { position: relative; flex: 1; min-width: 0; }
+    .item-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; flex-wrap: nowrap; }
+    .search-wrapper { position: relative; flex: 1.5; min-width: 0; }
     
-    .qty-wrapper { display: flex; align-items: center; gap: 1px; }
+    .price-wrapper { width: 75px; display: none; }
+    .price-wrapper.show-price { display: block; }
+    .item-custom-price { width: 100% !important; text-align: center; padding: 8px 2px !important; border-color: #0d9488 !important; background-color: #f0fdf4; }
+    
+    .qty-wrapper { display: flex; align-items: center; gap: 2px; }
     .qty-btn { 
-      background: #e8f0fe; color: #1a73e8; border: 1px solid #1a73e8; 
-      border-radius: 6px; width: 30px; height: 38px; font-size: 1.1rem; 
+      background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; 
+      border-radius: 6px; width: 32px; height: 38px; font-size: 1.1rem; 
       font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;
     }
-    .qty-btn:active { background: #d2e3fc; }
-    .item-qty { width: 38px !important; text-align: center; padding: 8px 2px !important; font-weight: bold; }
+    .qty-btn:active { background: #dbeafe; }
+    .item-qty { width: 40px !important; text-align: center; padding: 8px 2px !important; font-weight: bold; }
     
     .disc-column { display: none; }
     .show-discount .disc-column { display: block; }
     .item-disc-unit { width: 52px !important; text-align: center; padding: 8px 2px !important; border-color: #f9ab00 !important; background-color: #fffdf5; font-size: 14px; }
     .item-disc-total { width: 52px !important; text-align: center; padding: 8px 2px !important; border-color: #e65100 !important; background-color: #fff3e0; font-size: 14px; }
 
-    .btn-remove { background: #ff4d4d; color: white; border: none; border-radius: 6px; padding: 8px 10px; cursor: pointer; height: 38px; }
+    .btn-remove { background: #ef4444; color: white; border: none; border-radius: 6px; padding: 8px 10px; cursor: pointer; height: 38px; font-weight: bold; }
     
     .suggestions-list {
       position: absolute; top: 100%; left: 0; right: 0;
-      background: white; border: 1px solid #1a73e8; border-radius: 0 0 8px 8px;
+      background: white; border: 1px solid #3b82f6; border-radius: 0 0 8px 8px;
       max-height: 180px; overflow-y: auto; z-index: 999;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none;
     }
-    .suggestion-item { padding: 10px 12px; font-size: 0.9rem; cursor: pointer; border-bottom: 1px solid #eee; }
+    .suggestion-item { padding: 9px 12px; font-size: 0.88rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
     .suggestion-item:last-child { border-bottom: none; }
-    .suggestion-item:hover, .suggestion-item:active { background-color: #e8f0fe; color: #1a73e8; }
+    .suggestion-item:hover { background-color: #eff6ff; color: #2563eb; }
 
-    .btn { width: 100%; padding: 8px 10px; border: none; border-radius: 6px; font-size: 0.85rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .btn { width: 100%; padding: 9px 12px; border: none; border-radius: 8px; font-size: 0.85rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
     
-    .btn-add { background: #e8f0fe; color: #1a73e8; border: 1px dashed #1a73e8; padding: 10px; font-size: 0.95rem; }
-    .btn-add:hover { background: #d2e3fc; }
-    .btn-add-out { background: #fce8e6; color: #d93025; border: 1px dashed #ea4335; padding: 10px; font-size: 0.95rem; }
-    .btn-add-out:hover { background: #fad2cf; }
-    .btn-add-section { background: #e0f2fe; color: #0369a1; border: 1px dashed #0284c7; margin-bottom: 15px; padding: 10px; font-size: 0.95rem; }
-    .btn-add-section:hover { background: #bae6fd; }
-    .btn-parse { background: #1a73e8; color: white; margin-top: 5px; padding: 10px; font-size: 0.95rem; }
-    
-    .btn-clear-bill { background: #fef7e0; color: #b06000; border: 1px solid #f9ab00; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; cursor: pointer; }
-    .btn-toggle-disc { background: #f3e8ff; color: #6b21a8; border: 1px solid #c084fc; padding: 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; cursor: pointer; white-space: nowrap; }
-
-    .btn-copy { background: #34a853; color: white; margin-top: 10px; font-size: 0.95rem; padding: 10px; }
-    .btn-copy:hover { background: #2d8e47; }
-    
-    .preview-box { background: #1d72f3; color: white; padding: 18px; border-radius: 12px; font-size: 1.05rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; min-height: 120px; }
-    .preview-box-internal { background: #5c6bc0; color: white; padding: 18px; border-radius: 12px; font-size: 1.05rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; min-height: 100px; margin-top: 5px; }
-    
-    .status-bar { background: #e8f0fe; color: #1a73e8; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; margin-bottom: 15px; }
-    .out-of-stock-section { margin-top: 15px; padding-top: 15px; border-top: 2px dashed #ffcdd2; }
-    .preview-group { margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
-    
-    .input-header-labels { display: flex; gap: 5px; font-size: 0.75rem; font-weight: bold; color: #666; margin-bottom: 4px; padding-right: 45px; }
-    .action-button-group { display: flex; gap: 8px; }
-    .btn-delete-section { position: absolute; top: 10px; right: 10px; background: #ff4d4d; color: white; border: none; border-radius: 4px; padding: 3px 8px; font-size: 0.75rem; cursor: pointer; font-weight: bold; }
-
-    /* สไตล์ปุ่มเปิด-ปิดส่วนล่าง */
-    .bottom-toggle-section { margin-top: 15px; padding-top: 15px; border-top: 2px dashed #e2e8f0; }
-    .toggle-header-btn { 
-      width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px; 
-      font-weight: bold; font-size: 0.9rem; cursor: pointer; display: flex; 
-      justify-content: space-between; align-items: center; border: 1px solid #ccc;
+    .btn-action-single {
+      white-space: nowrap;
+      font-size: 0.78rem !important;
+      padding: 6px 4px !important;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     
-    /* สไตล์กล่องวางข้อความด่วน (ย้ายลงมาล่าง) */
-    .paste-toggle-btn { background: #f0f4f9; color: #1a73e8; border-color: #bfdbfe; }
-    .paste-box-content { 
-      display: none; background: #f0f4f9; padding: 12px; border-radius: 0 0 8px 8px; 
-      border: 1px dashed #1a73e8; border-top: none; margin-bottom: 10px; 
+    .btn-add { background: #eff6ff; color: #2563eb; border: 1px dashed #93c5fd; }
+    .btn-add:hover { background: #dbeafe; }
+    .btn-add-custom { background: #f0fdf4; color: #0d9488; border: 1px dashed #99f6e4; }
+    .btn-add-custom:hover { background: #ccfbf1; }
+    .btn-toggle-disc { background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap; }
+
+    .btn-parse { background: #2563eb; color: white; margin-top: 8px; padding: 9px; font-size: 0.88rem; }
+    
+    .btn-header-action {
+      white-space: nowrap;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      height: 32px;
     }
-    .paste-box-content textarea { 
-      min-height: 70px; height: auto; resize: none; 
+    .btn-clear-bill { background: #fffbe6; color: #b45309; border: 1px solid #fde047; }
+    .btn-refresh { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+    .btn-refresh:hover { background: #e2e8f0; }
+
+    .btn-copy { background: #16a34a; color: white; margin-top: 10px; font-size: 0.9rem; padding: 10px; }
+    .btn-copy:hover { background: #15803d; }
+    
+    .btn-save-draft { background: #f59e0b; color: white; margin-top: 6px; font-size: 0.85rem; padding: 9px; }
+    .btn-save-draft:hover { background: #d97706; }
+    
+    .preview-box { background: #2563eb; color: white; padding: 18px; border-radius: 12px; font-size: 1.02rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; min-height: 110px; }
+    .preview-box-internal { background: #4f46e5; color: white; padding: 18px; border-radius: 12px; font-size: 1.02rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; min-height: 90px; margin-top: 5px; }
+    
+    .status-bar { background: #eff6ff; color: #1d4ed8; padding: 9px 12px; border-radius: 8px; font-size: 0.83rem; font-weight: bold; margin-bottom: 14px; }
+    .preview-group { margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; }
+    
+    .input-header-labels { display: flex; gap: 6px; font-size: 0.75rem; font-weight: bold; color: #64748b; margin-bottom: 6px; padding-right: 45px; }
+    .action-button-group { display: flex; gap: 6px; }
+    .btn-delete-section { position: absolute; top: 12px; right: 12px; background: #ef4444; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 0.75rem; cursor: pointer; font-weight: bold; }
+
+    /* สไตล์ Dropdown เมนูฟังก์ชั่นเสริม */
+    .extra-features-dropdown { margin-top: 10px; border-top: 2px dashed #f1f5f9; padding-top: 14px; }
+    .dropdown-btn {
+      width: 100%; background: #f8fafc; color: #1e40af; border: 1.5px solid #cbd5e1;
+      padding: 11px 14px; border-radius: 10px; font-weight: bold; font-size: 0.9rem;
+      cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+      transition: 0.2s;
+    }
+    .dropdown-btn:hover { background: #f1f5f9; border-color: #93c5fd; }
+    .dropdown-content {
+      display: none; background: #ffffff; border: 1px solid #cbd5e1;
+      border-radius: 10px; margin-top: 8px; padding: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05); flex-direction: column; gap: 10px;
+    }
+
+    .sub-toggle-btn {
+      width: 100%; text-align: left; padding: 9px 12px; border-radius: 8px;
+      font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex;
+      justify-content: space-between; align-items: center; border: 1px solid #cbd5e1;
+    }
+    
+    .paste-toggle-btn { background: #f8fafc; color: #1e40af; }
+    .paste-box-content {
+      display: none; background: #f8fafc; padding: 10px; border-radius: 0 0 8px 8px;
+      border: 1px dashed #93c5fd; border-top: none; margin-top: -2px;
+    }
+    .paste-box-content textarea {
+      min-height: 70px; height: auto; resize: none;
       overflow-y: hidden; font-size: 0.85rem; line-height: 1.4; background: white;
     }
 
-    /* สไตล์ส่วนข้อความใช้บ่อย */
-    .preset-toggle-btn { background: #fefce8; color: #854d0e; border-color: #fef08a; }
-    .preset-list-compact { display: none; margin-top: 8px; flex-direction: column; gap: 8px; }
-    .preset-item-compact { 
-      background: #fff; border: 1px solid #fde047; padding: 8px 10px; 
-      border-radius: 6px; display: flex; justify-content: space-between; 
-      align-items: center; font-size: 0.85rem; gap: 8px;
+    .preset-toggle-btn { background: #fffbe6; color: #854d0e; border-color: #fef08a; }
+    .preset-list-compact { display: none; margin-top: 6px; flex-direction: column; gap: 6px; }
+    .preset-item-compact {
+      background: #fff; border: 1px solid #fef08a; padding: 8px 10px;
+      border-radius: 6px; display: flex; justify-content: space-between;
+      align-items: center; font-size: 0.83rem; gap: 8px;
     }
     .preset-item-title { font-weight: bold; color: #713f12; flex: 1; }
     .preset-item-btns { display: flex; gap: 4px; }
     .btn-mini { padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; }
     .btn-mini-copy { background: #ca8a04; color: white; }
-    .btn-mini-load { background: #1a73e8; color: white; }
+    .btn-mini-load { background: #2563eb; color: white; }
+    
+    .btn-add-section-inside { background: #f0f9ff; color: #0284c7; border: 1.5px dashed #7dd3fc; padding: 10px; font-size: 0.88rem; font-weight: bold; }
+    .btn-add-section-inside:hover { background: #e0f2fe; }
   </style>
 </head>
 <body>
@@ -128,120 +204,128 @@
   <div class="card" id="mainCard">
     <div class="header-group">
       <h2>1. คีย์ข้อมูลรายการ</h2>
-      <button class="btn-clear-bill" onclick="clearBill()">🧹 เคลียร์บิล</button>
+      <div class="header-btns">
+        <button class="btn-header-action btn-refresh" onclick="location.reload()">🔄 รีเฟรช</button>
+        <button class="btn-header-action btn-clear-bill" onclick="clearBill()">🧹 เคลียร์บิล</button>
+      </div>
     </div>
     
     <div class="status-bar" id="statusText">
       ⏳ กำลังดึงข้อมูลจากไฟล์ SKU.xlsx...
     </div>
 
+    <!-- แถบบิลที่พักไว้ -->
+    <div class="draft-bar-container" id="draftBarContainer">
+      <div class="draft-bar-header">📌 บิลที่พักไว้ (คลิกเพื่อดึงข้อมูล):</div>
+      <div class="draft-cards-holder" id="draftCardsHolder"></div>
+    </div>
+
     <!-- คอนเทนเนอร์เก็บกล่องรายการสั่งซื้อทั้งหมด -->
     <div id="orderSectionsContainer"></div>
 
-    <!-- ปุ่มเพิ่มชุดรายการสั่งซื้อใหม่ -->
-    <button class="btn btn-add-section" onclick="addOrderSection()">➕ เพิ่มกล่องสรุปยอดสั่งซื้อใหม่ (แยกชุดสินค้า)</button>
+    <!-- ดรอปดาวน์ฟังก์ชั่นเสริม -->
+    <div class="extra-features-dropdown">
+      <button class="dropdown-btn" onclick="toggleExtraDropdown()">
+        <span>⚙️ ฟังก์ชั่นเสริม</span>
+        <span id="extraDropdownArrow">▼</span>
+      </button>
 
-    <!-- รายการสินค้าที่หมด -->
-    <div class="out-of-stock-section">
-      <label style="color:#d93025; font-weight:bold;">❌ รายการสินค้าที่หมด:</label>
-      <div id="outOfStockContainer"></div>
-      <button class="btn btn-add-out" onclick="addOutOfStockRow()">+ เพิ่มรายการสินค้าหมด</button>
-    </div>
+      <div class="dropdown-content" id="extraDropdownContent">
+        <!-- 1. ปุ่มเพิ่มกล่องสั่งซื้อใหม่ -->
+        <button class="btn btn-add-section-inside" onclick="addOrderSection()">➕ เพิ่มกล่องสั่งซื้อใหม่ (แยกชุดสินค้า)</button>
 
-    <!-- ส่วนพับ/ขยาย ด้านล่างสุด -->
-    <div class="bottom-toggle-section">
-      
-      <!-- 1. ส่วนวางข้อความด่วน (พับ/ขยายได้) -->
-      <div style="margin-bottom: 10px;">
-        <button class="toggle-header-btn paste-toggle-btn" onclick="togglePasteBox()">
-          <span>📋 วางข้อความบิลเดิม เพื่อดึงรายการอัตโนมัติ</span>
-          <span id="pasteArrow">▼</span>
-        </button>
-        <div class="paste-box-content" id="pasteBoxContent">
-          <textarea id="rawTextImport" placeholder="วางข้อความที่นี่..." oninput="autoResizeTextarea(this)"></textarea>
-          <button class="btn btn-parse" onclick="parseTextToForm()">⚡ นำเข้าข้อมูลลงฟอร์ม</button>
+        <!-- 2. ส่วนวางข้อความด่วน -->
+        <div>
+          <button class="sub-toggle-btn paste-toggle-btn" onclick="togglePasteBox()">
+            <span>📋 วางข้อความบิลเดิม ดึงรายการอัตโนมัติ</span>
+            <span id="pasteArrow">▼</span>
+          </button>
+          <div class="paste-box-content" id="pasteBoxContent">
+            <textarea id="rawTextImport" placeholder="วางข้อความที่นี่..." oninput="autoResizeTextarea(this)"></textarea>
+            <button class="btn btn-parse" onclick="parseTextToForm()">⚡ นำเข้าข้อมูลลงฟอร์ม</button>
+          </div>
         </div>
-      </div>
 
-      <!-- 2. ส่วนข้อความคำตอบที่ใช้บ่อย (พับ/ขยายได้) -->
-      <div>
-        <button class="toggle-header-btn preset-toggle-btn" onclick="togglePresetList()">
-          <span>📌 ข้อความชุดคำตอบที่ใช้บ่อย (Quick Copy)</span>
-          <span id="presetArrow">▼</span>
-        </button>
-        
-        <div class="preset-list-compact" id="presetListCompact">
-          <!-- มอไซ -->
-          <div class="preset-item-compact">
-            <span class="preset-item-title">🛵 ชุดปะรถมอไซ (1,380฿)</span>
-            <div class="preset-item-btns">
-              <button class="btn-mini btn-mini-copy" onclick="copyPresetText('preset_1')">📋 คัดลอก</button>
-              <button class="btn-mini btn-mini-load" onclick="loadPresetToForm('preset_1')">⚡ นำเข้า</button>
-            </div>
-            <div id="preset_1" style="display:none;">ชุดปะรถมอไซ
-แผ่นปะ US 42 มม(150แผ่น) = 320
+        <!-- 3. ส่วนข้อความคำตอบที่ใช้บ่อย -->
+        <div>
+          <button class="sub-toggle-btn preset-toggle-btn" onclick="togglePresetList()">
+            <span>📌 ข้อความคำตอบใช้บ่อย (Quick Copy)</span>
+            <span id="presetArrow">▼</span>
+          </button>
+          
+          <div class="preset-list-compact" id="presetListCompact">
+            <!-- มอไซ -->
+            <div class="preset-item-compact">
+              <span class="preset-item-title">🛵 ชุดปะรถมอไซ (1,380฿)</span>
+              <div class="preset-item-btns">
+                <button class="btn-mini btn-mini-copy" onclick="copyPresetText('preset_1')">📋 คัดลอก</button>
+                <button class="btn-mini btn-mini-load" onclick="loadPresetToForm('preset_1')">⚡ นำเข้า</button>
+              </div>
+              <div id="preset_1" style="display:none;">ชุดปะรถมอไซ
+แผ่นปะ US 42 มม(150แผ่น) =320
 กาวปะ MR =260
-ไม้กลิ้งสติม = 100
-ชุดบอสเจียร = 550
-เหล็กงัดยาง 12 นิ้ว x2 = 100
+ไม้กลิ้งสติม =100
+ชุดบอสเจียร =550
+เหล็กงัดยาง 12 นิ้ว x2 =100
 
 ค่าจัดส่ง 50 บ
 รวม 1380 บ
 เก็บเงินปลายทาง</div>
-          </div>
-
-          <!-- กะบะ -->
-          <div class="preset-item-compact">
-            <span class="preset-item-title">🛻 ชุดปะยางรถกะบะ (730฿)</span>
-            <div class="preset-item-btns">
-              <button class="btn-mini btn-mini-copy" onclick="copyPresetText('preset_4')">📋 คัดลอก</button>
-              <button class="btn-mini btn-mini-load" onclick="loadPresetToForm('preset_4')">⚡ นำเข้า</button>
             </div>
-            <div id="preset_4" style="display:none;">ชุดปะยางรถกะบะ
-US 58 มม(80แผ่น) = 320
-กาวปะ MR = 260
-ไม้กลิ้งสติม 7 มม = 100
+
+            <!-- กะบะ -->
+            <div class="preset-item-compact">
+              <span class="preset-item-title">🛻 ชุดปะยางรถกะบะ (730฿)</span>
+              <div class="preset-item-btns">
+                <button class="btn-mini btn-mini-copy" onclick="copyPresetText('preset_4')">📋 คัดลอก</button>
+                <button class="btn-mini btn-mini-load" onclick="loadPresetToForm('preset_4')">⚡ นำเข้า</button>
+              </div>
+              <div id="preset_4" style="display:none;">ชุดปะยางรถกะบะ
+US 58 มม(80แผ่น) =320
+กาวปะ MR =260
+ไม้กลิ้งสติม 7 มม =100
 
 ค่าจัดส่ง 50 บ
 รวม 730 บ
 เก็บเงินปลายทาง</div>
-          </div>
-
-          <!-- รถไถ/สิบล้อ -->
-          <div class="preset-item-compact">
-            <span class="preset-item-title">🚜 ชุดปะยางในรถไถ/สิบล้อ (530฿)</span>
-            <div class="preset-item-btns">
-              <button class="btn-mini btn-mini-copy" onclick="copyPresetText('preset_2')">📋 คัดลอก</button>
-              <button class="btn-mini btn-mini-load" onclick="loadPresetToForm('preset_2')">⚡ นำเข้า</button>
             </div>
-            <div id="preset_2" style="display:none;">ชุดปะยางในรถไถ/สิบล้อ
-แผ่นปะ EU 73 มม(36แผ่น) = 220
-กาวปะ MR = 260
+
+            <!-- รถไถ/สิบล้อ -->
+            <div class="preset-item-compact">
+              <span class="preset-item-title">🚜 ชุดปะยางในรถไถ/สิบล้อ (530฿)</span>
+              <div class="preset-item-btns">
+                <button class="btn-mini btn-mini-copy" onclick="copyPresetText('preset_2')">📋 คัดลอก</button>
+                <button class="btn-mini btn-mini-load" onclick="loadPresetToForm('preset_2')">⚡ นำเข้า</button>
+              </div>
+              <div id="preset_2" style="display:none;">ชุดปะยางในรถไถ/สิบล้อ
+แผ่นปะ EU 73 มม(36แผ่น) =220
+กาวปะ MR =260
 
 ค่าจัดส่ง 50 บ
 รวม 530 บ
 เก็บเงินปลายทาง</div>
-          </div>
-
-          <!-- สิบล้อ 11R -->
-          <div class="preset-item-compact">
-            <span class="preset-item-title">🚛 ชุดปะยางเรเดียลสิบล้อ 11R (950฿)</span>
-            <div class="preset-item-btns">
-              <button class="btn-mini btn-mini-copy" onclick="copyPresetText('preset_3')">📋 คัดลอก</button>
-              <button class="btn-mini btn-mini-load" onclick="loadPresetToForm('preset_3')">⚡ นำเข้า</button>
             </div>
-            <div id="preset_3" style="display:none;">ชุดปะยางเรเดียลสิบล้อ 11R
-แผ่นปะ BY-10 (20แผ่น) = 320
+
+            <!-- สิบล้อ 11R -->
+            <div class="preset-item-compact">
+              <span class="preset-item-title">🚛 ชุดปะยางเรเดียลสิบล้อ 11R (950฿)</span>
+              <div class="preset-item-btns">
+                <button class="btn-mini btn-mini-copy" onclick="copyPresetText('preset_3')">📋 คัดลอก</button>
+                <button class="btn-mini btn-mini-load" onclick="loadPresetToForm('preset_3')">⚡ นำเข้า</button>
+              </div>
+              <div id="preset_3" style="display:none;">ชุดปะยางเรเดียลสิบล้อ 11R
+แผ่นปะ BY-10 (20แผ่น) =320
 แผ่นปะ BY-12 (10 แผ่น) =320
-กาวปะ MR = 260
+กาวปะ MR =260
 
 ค่าจัดส่ง 50 บ
 รวม 950 บ
 เก็บเงินปลายทาง</div>
+            </div>
           </div>
         </div>
-      </div>
 
+      </div>
     </div>
 
   </div>
@@ -249,14 +333,7 @@ US 58 มม(80แผ่น) = 320
   <!-- ฝั่งแสดงผลสรุปยอด -->
   <div class="card">
     <h2>2. ข้อความสำหรับส่งลูกค้า</h2>
-    
     <div id="previewOrderTextContainer"></div>
-
-    <div class="preview-group">
-      <label style="font-weight:bold; color:#d93025; margin-bottom:5px; display:block;">🔸 กล่องแจ้งสินค้าหมด</label>
-      <div class="preview-box" id="previewOutOfStockText" style="min-height: 90px; background: #e65100;"></div>
-      <button class="btn btn-copy" style="background:#e65100;" onclick="copyToClipboard('previewOutOfStockText')">📋 คัดลอกกล่องสินค้าหมด</button>
-    </div>
   </div>
 </div>
 
@@ -266,14 +343,12 @@ US 58 มม(80แผ่น) = 320
 
   async function fetchExcelDirectly() {
     try {
-      // เติม ?v= Timestamp เพื่อบังคับเบราว์เซอร์ให้โหลดไฟล์ใหม่จาก GitHub เสมอ ป้องกันติด Cache
       const response = await fetch('SKU.xlsx?v=' + new Date().getTime());
       if (!response.ok) throw new Error('Network error');
       const arrayBuffer = await response.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
       
       let rawData = [];
-      // อ่านข้อมูลจากทุก Sheet ใน Excel
       workbook.SheetNames.forEach(sheetName => {
         const sheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(sheet);
@@ -282,7 +357,6 @@ US 58 มม(80แผ่น) = 320
 
       if (rawData.length > 0) {
         productDatabase = rawData.map(item => {
-          // รองรับชื่อคอลัมน์ทั้งแบบตัวพิมพ์เล็ก พิมพ์ใหญ่ และแบบมีเว้นวรรค
           const nameVal = item.Name || item.name || item['Name '] || item['name '] || '';
           const priceVal = item.Price || item.price || item['Price '] || item['price '] || 0;
 
@@ -314,18 +388,27 @@ US 58 มม(80แผ่น) = 320
     document.getElementById('mainCard').classList.toggle('show-discount');
   }
 
+  function toggleExtraDropdown() {
+    const content = document.getElementById('extraDropdownContent');
+    const arrow = document.getElementById('extraDropdownArrow');
+    if (content.style.display === 'flex') {
+      content.style.display = 'none';
+      arrow.innerText = '▼';
+    } else {
+      content.style.display = 'flex';
+      arrow.innerText = '▲';
+    }
+  }
+
   function togglePasteBox() {
     const content = document.getElementById('pasteBoxContent');
     const arrow = document.getElementById('pasteArrow');
-    const btn = document.querySelector('.paste-toggle-btn');
     if (content.style.display === 'block') {
       content.style.display = 'none';
       arrow.innerText = '▼';
-      btn.style.borderRadius = '8px';
     } else {
       content.style.display = 'block';
       arrow.innerText = '▲';
-      btn.style.borderRadius = '8px 8px 0 0';
     }
   }
 
@@ -358,6 +441,7 @@ US 58 มม(80แผ่น) = 320
 
   function addOrderSection() {
     sectionCounter++;
+    const currentNum = sectionCounter;
     const sectionId = 'sec_' + Date.now();
     const container = document.getElementById('orderSectionsContainer');
     const previewContainer = document.getElementById('previewOrderTextContainer');
@@ -367,23 +451,24 @@ US 58 มม(80แผ่น) = 320
     secDiv.id = sectionId;
     secDiv.innerHTML = `
       ${sectionCounter > 1 ? `<button class="btn-delete-section" onclick="removeOrderSection('${sectionId}')">ลบชุดนี้</button>` : ''}
-      <label style="color:#1a73e8; font-weight:bold; margin-bottom: 8px; display:block;">📦 รายการสั่งซื้อ ชุดที่ ${sectionCounter}:</label>
+      <label class="sec-label-header" style="color:#1e40af; font-weight:bold; margin-bottom: 10px; display:block;">📦 รายการสั่งซื้อ ชุดที่ ${currentNum}:</label>
       
       <div class="input-header-labels">
-        <div style="flex:1;">ชื่อสินค้า</div>
-        <div style="width: 102px; text-align: center;">จำนวน</div>
+        <div style="flex:1.5;">ชื่อสินค้า</div>
+        <div style="width: 104px; text-align: center;">จำนวน</div>
         <div class="disc-column" style="width: 52px; text-align: center; color: #d97706;">ลด/ชิ้น</div>
         <div class="disc-column" style="width: 52px; text-align: center; color: #dc2626;">ลดเหมา</div>
       </div>
 
       <div class="items-holder"></div>
       
-      <div class="action-button-group" style="margin-top: 8px;">
-        <button class="btn btn-add" style="flex: 1;" onclick="addItemRow('${sectionId}')">+ เพิ่มสินค้า</button>
-        <button class="btn-toggle-disc" onclick="toggleDiscountFields()">🏷️ ส่วนลด</button>
+      <div class="action-button-group" style="margin-top: 10px;">
+        <button class="btn btn-add btn-action-single" style="flex: 1;" onclick="addItemRow('${sectionId}', '', 1, '', false)">+ เพิ่มสินค้า</button>
+        <button class="btn btn-add-custom btn-action-single" style="flex: 1;" onclick="addItemRow('${sectionId}', '', 1, '', true)">✍️ เพิ่มเอง</button>
+        <button class="btn-toggle-disc btn-action-single" style="flex: 0.9;" onclick="toggleDiscountFields()">🏷️ ส่วนลด</button>
       </div>
 
-      <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #ddd;">
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px dashed #e2e8f0;">
         <div class="form-group" style="flex:1; min-width: 120px;">
           <label>ประเภทจัดส่ง:</label>
           <select class="sec-shipping-type" onchange="toggleShippingInputSection('${sectionId}')">
@@ -410,19 +495,22 @@ US 58 มม(80แผ่น) = 320
     prevDiv.className = 'preview-group';
     prevDiv.id = 'preview_group_' + sectionId;
     prevDiv.innerHTML = `
-      <label style="font-weight:bold; color:#1a73e8; margin-bottom:5px; display:block;">🔹 กล่องที่ ${sectionCounter}: สรุปยอดสินค้า (ส่งให้ลูกค้า)</label>
+      <label class="prev-label-header" style="font-weight:bold; color:#1e40af; margin-bottom:6px; display:block;">🔹 กล่องที่ ${currentNum}: สรุปยอดสินค้า (ส่งให้ลูกค้า)</label>
       <div class="preview-box" id="preview_text_${sectionId}"></div>
-      <button class="btn btn-copy" onclick="copyToClipboard('preview_text_${sectionId}')">📋 คัดลอกกล่องส่งลูกค้า ชุดที่ ${sectionCounter}</button>
+      <button class="btn btn-copy prev-btn-copy" onclick="copyToClipboard('preview_text_${sectionId}')">📋 คัดลอกกล่องส่งลูกค้า ชุดที่ ${currentNum}</button>
       
+      <button class="btn btn-save-draft" onclick="saveDraftSection('${sectionId}')">💾 พักบิลนี้ไว้</button>
+
       <div id="internal_group_${sectionId}" style="display:none; margin-top: 15px;">
-        <label style="font-weight:bold; color:#5c6bc0; margin-bottom:5px; display:block;">🔍 กล่องสำหรับดูเอง (เช็คส่วนลด ชุดที่ ${sectionCounter})</label>
+        <label class="internal-label-header" style="font-weight:bold; color:#4f46e5; margin-bottom:6px; display:block;">🔍 กล่องสำหรับดูเอง (เช็คส่วนลด ชุดที่ ${currentNum})</label>
         <div class="preview-box-internal" id="internal_text_${sectionId}"></div>
-        <button class="btn btn-copy" style="background:#5c6bc0;" onclick="copyToClipboard('internal_text_${sectionId}')">📋 คัดลอกกล่องเช็คยอด</button>
+        <button class="btn btn-copy" style="background:#4f46e5;" onclick="copyToClipboard('internal_text_${sectionId}')">📋 คัดลอกกล่องเช็คยอด</button>
       </div>
     `;
     previewContainer.appendChild(prevDiv);
 
-    addItemRow(sectionId);
+    addItemRow(sectionId, '', 1, '', false);
+    reindexSections();
   }
 
   function removeOrderSection(sectionId) {
@@ -430,6 +518,30 @@ US 58 มม(80แผ่น) = 320
     const prev = document.getElementById('preview_group_' + sectionId);
     if (sec) sec.remove();
     if (prev) prev.remove();
+    reindexSections();
+  }
+
+  function reindexSections() {
+    const sections = document.querySelectorAll('.order-section-box');
+    sections.forEach((sec, idx) => {
+      const num = idx + 1;
+      const secId = sec.id;
+      
+      const secHeader = sec.querySelector('.sec-label-header');
+      if (secHeader) secHeader.innerText = `📦 รายการสั่งซื้อ ชุดที่ ${num}:`;
+
+      const prevGroup = document.getElementById('preview_group_' + secId);
+      if (prevGroup) {
+        const prevHeader = prevGroup.querySelector('.prev-label-header');
+        if (prevHeader) prevHeader.innerText = `🔹 กล่องที่ ${num}: สรุปยอดสินค้า (ส่งให้ลูกค้า)`;
+        
+        const prevCopyBtn = prevGroup.querySelector('.prev-btn-copy');
+        if (prevCopyBtn) prevCopyBtn.innerText = `📋 คัดลอกกล่องส่งลูกค้า ชุดที่ ${num}`;
+
+        const internalHeader = prevGroup.querySelector('.internal-label-header');
+        if (internalHeader) internalHeader.innerText = `🔍 กล่องสำหรับดูเอง (เช็คส่วนลด ชุดที่ ${num})`;
+      }
+    });
     updateSummary();
   }
 
@@ -441,12 +553,13 @@ US 58 มม(80แผ่น) = 320
     updateSummary();
   }
 
-  function addItemRow(sectionId, defaultName = '', defaultQty = 1) {
+  function addItemRow(sectionId, defaultName = '', defaultQty = 1, defaultPrice = '', isCustom = false) {
     const sec = document.getElementById(sectionId);
     const container = sec.querySelector('.items-holder');
     const randomId = Date.now() + Math.random().toString(36).substr(2, 4);
     const inputId = 'item_input_' + randomId;
     const listId = 'list_' + randomId;
+    const priceId = 'price_' + randomId;
     const qtyId = 'qty_' + randomId;
     const discUnitId = 'disc_unit_' + randomId;
     const discTotalId = 'disc_total_' + randomId;
@@ -456,12 +569,15 @@ US 58 มม(80แผ่น) = 320
     div.id = 'row_' + randomId;
     div.innerHTML = `
       <div class="search-wrapper">
-        <input type="text" id="${inputId}" class="item-name" placeholder="พิมพ์ชื่อสินค้า..." value="${defaultName}" autocomplete="off" oninput="handleSearchInput(this, '${listId}')">
+        <input type="text" id="${inputId}" class="item-name" placeholder="${isCustom ? 'ชื่อสินค้าเอง...' : 'พิมพ์ชื่อสินค้า...'}" value="${defaultName}" autocomplete="off" oninput="handleSearchInput(this, '${listId}')">
         <div id="${listId}" class="suggestions-list"></div>
+      </div>
+      <div class="price-wrapper ${isCustom ? 'show-price' : ''}">
+        <input type="number" id="${priceId}" class="item-custom-price" placeholder="ราคา" value="${defaultPrice}" oninput="updateSummary()" title="กำหนดราคาเอง">
       </div>
       <div class="qty-wrapper">
         <button type="button" class="qty-btn" onclick="changeQty('${qtyId}', -1)">-</button>
-        <input type="number" id="${qtyId}" class="item-qty" value="${defaultQty}" min="1" oninput="updateSummary()">
+        <input type="number" id="${qtyId}" class="item-qty" value="${defaultQty}" min="0" oninput="updateSummary()">
         <button type="button" class="qty-btn" onclick="changeQty('${qtyId}', 1)">+</button>
       </div>
       <input type="number" id="${discUnitId}" class="item-disc-unit disc-column" placeholder="ชิ้น" min="0" oninput="updateSummary()" title="ส่วนลดต่อชิ้น">
@@ -469,26 +585,16 @@ US 58 มม(80แผ่น) = 320
       <button class="btn-remove" onclick="removeRow('row_${randomId}')">✕</button>
     `;
     container.appendChild(div);
-    updateSummary();
-  }
 
-  function addOutOfStockRow(defaultName = '') {
-    const container = document.getElementById('outOfStockContainer');
-    const randomId = Date.now() + Math.random().toString(36).substr(2, 4);
-    const inputId = 'out_input_' + randomId;
-    const listId = 'out_list_' + randomId;
+    if (defaultPrice !== '') {
+      document.getElementById(priceId).value = defaultPrice;
+    } else if (defaultName) {
+      const found = productDatabase.find(p => cleanText(p.Name) === cleanText(defaultName));
+      if (found) {
+        document.getElementById(priceId).value = found.Price;
+      }
+    }
 
-    const div = document.createElement('div');
-    div.className = 'item-row';
-    div.id = 'out_' + randomId;
-    div.innerHTML = `
-      <div class="search-wrapper">
-        <input type="text" id="${inputId}" class="out-item-name" placeholder="พิมพ์ชื่อสินค้าหมด..." value="${defaultName}" autocomplete="off" oninput="handleSearchInput(this, '${listId}')">
-        <div id="${listId}" class="suggestions-list"></div>
-      </div>
-      <button class="btn-remove" onclick="removeRow('out_${randomId}')">✕</button>
-    `;
-    container.appendChild(div);
     updateSummary();
   }
 
@@ -506,8 +612,8 @@ US 58 มม(80แผ่น) = 320
 
     if (matches.length > 0) {
       list.innerHTML = matches.map(p => `
-        <div class="suggestion-item" onclick="selectSuggestion('${input.id}', '${listId}', '${p.Name}')">
-          ${p.Name} <span style="color:#1a73e8; font-size:0.8rem;">(${p.Price}฿)</span>
+        <div class="suggestion-item" onclick="selectSuggestion('${input.id}', '${listId}', '${p.Name}', ${p.Price})">
+          ${p.Name} <span style="color:#2563eb; font-size:0.8rem;">(${p.Price}฿)</span>
         </div>
       `).join('');
       list.style.display = 'block';
@@ -517,11 +623,20 @@ US 58 มม(80แผ่น) = 320
     updateSummary();
   }
 
-  function selectSuggestion(inputId, listId, selectedName) {
+  function selectSuggestion(inputId, listId, selectedName, price) {
     const input = document.getElementById(inputId);
     const list = document.getElementById(listId);
     input.value = selectedName;
     list.style.display = 'none';
+    
+    const row = input.closest('.item-row');
+    if (row) {
+      const priceInput = row.querySelector('.item-custom-price');
+      if (priceInput) {
+        priceInput.value = price;
+      }
+    }
+
     updateSummary();
   }
 
@@ -533,9 +648,10 @@ US 58 มม(80แผ่น) = 320
 
   function changeQty(qtyInputId, delta) {
     const qtyInput = document.getElementById(qtyInputId);
-    let currentVal = parseInt(qtyInput.value) || 1;
+    let currentVal = parseInt(qtyInput.value);
+    if (isNaN(currentVal)) currentVal = 0;
     currentVal += delta;
-    if (currentVal < 1) currentVal = 1;
+    if (currentVal < 0) currentVal = 0;
     qtyInput.value = currentVal;
     updateSummary();
   }
@@ -549,10 +665,115 @@ US 58 มม(80แผ่น) = 320
   function clearBill() {
     document.getElementById('orderSectionsContainer').innerHTML = '';
     document.getElementById('previewOrderTextContainer').innerHTML = '';
-    document.getElementById('outOfStockContainer').innerHTML = '';
     document.getElementById('rawTextImport').value = '';
     sectionCounter = 0;
     addOrderSection();
+  }
+
+  /* --- ระบบพักบิล --- */
+  function getDraftsFromStorage() {
+    const drafts = localStorage.getItem('app_saved_drafts');
+    return drafts ? JSON.parse(drafts) : [];
+  }
+
+  function saveDraftsToStorage(drafts) {
+    localStorage.setItem('app_saved_drafts', JSON.stringify(drafts));
+    renderDraftBar();
+  }
+
+  function saveDraftSection(sectionId) {
+    const sec = document.getElementById(sectionId);
+    if (!sec) return;
+
+    const items = [];
+    let grandTotal = sec.dataset.grandTotal || 0;
+
+    sec.querySelectorAll('.item-row').forEach(row => {
+      const name = row.querySelector('.item-name').value.trim();
+      const qty = row.querySelector('.item-qty').value;
+      const customPrice = row.querySelector('.item-custom-price').value;
+      const isCustom = row.querySelector('.price-wrapper').classList.contains('show-price');
+      const discUnit = row.querySelector('.item-disc-unit').value;
+      const discTotal = row.querySelector('.item-disc-total').value;
+
+      if (name) {
+        items.push({ name, qty, customPrice, isCustom, discUnit, discTotal });
+      }
+    });
+
+    if (items.length === 0) {
+      alert("ไม่มีข้อมูลสินค้าในกล่องนี้ให้บันทึกครับ");
+      return;
+    }
+
+    const draftItem = {
+      id: 'draft_' + Date.now(),
+      totalAmount: grandTotal,
+      shippingType: sec.querySelector('.sec-shipping-type').value,
+      shippingFee: sec.querySelector('.sec-shipping-fee').value,
+      paymentType: sec.querySelector('.sec-payment-type').value,
+      items: items
+    };
+
+    const drafts = getDraftsFromStorage();
+    drafts.push(draftItem);
+    saveDraftsToStorage(drafts);
+    alert(`💾 พักบิลเรียบร้อยแล้ว (ยอด ${grandTotal} บ.)`);
+  }
+
+  function renderDraftBar() {
+    const drafts = getDraftsFromStorage();
+    const container = document.getElementById('draftBarContainer');
+    const holder = document.getElementById('draftCardsHolder');
+
+    if (drafts.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+
+    container.style.display = 'block';
+    holder.innerHTML = drafts.map(d => `
+      <div class="draft-card" onclick="loadDraftToForm('${d.id}')">
+        <span class="draft-amount">ยอด ${d.totalAmount} บ.</span>
+        <button class="draft-delete-btn" onclick="event.stopPropagation(); deleteDraft('${d.id}')">✕</button>
+      </div>
+    `).join('');
+  }
+
+  function loadDraftToForm(draftId) {
+    const drafts = getDraftsFromStorage();
+    const draft = drafts.find(d => d.id === draftId);
+    if (!draft) return;
+
+    const firstSection = document.querySelector('.order-section-box');
+    if (!firstSection) return;
+
+    firstSection.querySelector('.sec-shipping-type').value = draft.shippingType;
+    firstSection.querySelector('.sec-shipping-fee').value = draft.shippingFee;
+    firstSection.querySelector('.sec-payment-type').value = draft.paymentType;
+    toggleShippingInputSection(firstSection.id);
+
+    const holder = firstSection.querySelector('.items-holder');
+    holder.innerHTML = '';
+
+    draft.items.forEach(item => {
+      addItemRow(firstSection.id, item.name, item.qty, item.customPrice, item.isCustom);
+      const rows = holder.querySelectorAll('.item-row');
+      const lastRow = rows[rows.length - 1];
+      if (lastRow) {
+        lastRow.querySelector('.item-disc-unit').value = item.discUnit || '';
+        lastRow.querySelector('.item-disc-total').value = item.discTotal || '';
+      }
+    });
+
+    updateSummary();
+    deleteDraft(draftId);
+  }
+
+  function deleteDraft(draftId) {
+    let drafts = getDraftsFromStorage();
+    drafts = drafts.filter(d => d.id !== draftId);
+    saveDraftsToStorage(drafts);
   }
 
   function parseTextToForm() {
@@ -574,7 +795,7 @@ US 58 มม(80แผ่น) = 320
       let l = line.trim();
       if (!l) return;
 
-      if (l.startsWith('ชุดปะ')) return;
+      if (l.startsWith('ชุดปะ') || l.startsWith('กล่องที่')) return;
 
       if (l.includes('เก็บเงินปลายทาง')) {
         firstSection.querySelector('.sec-payment-type').value = 'เก็บเงินปลายทาง';
@@ -606,14 +827,35 @@ US 58 มม(80แผ่น) = 320
       }
 
       if (l.startsWith('ส่วนลด')) return;
-      if (l.startsWith('รวม') || l.startsWith('รับเท่านี้') || l.startsWith('สินค้าหมด')) return;
+      if (l.startsWith('รวม') || l.startsWith('รับเท่านี้')) return;
 
       let qty = 1;
-      const qtyMatch = l.match(/x(\d+)/i) || l.match(/\*\s*(\d+)/i);
-      if (qtyMatch) qty = parseInt(qtyMatch[1]);
+      let isZeroQty = false;
 
-      let namePart = l.split('=')[0].replace(/x\d+/i, '').replace(/\*\s*\d+.*$/i, '').trim();
-      if (namePart) addItemRow(firstSection.id, namePart, qty);
+      if (l.includes('สินค้าหมด') || l.includes('= 0') || l.includes('=0')) {
+        qty = 0;
+        isZeroQty = true;
+      } else {
+        const qtyMatch = l.match(/x(\d+)/i) || l.match(/\*\s*(\d+)/i);
+        if (qtyMatch) qty = parseInt(qtyMatch[1]);
+      }
+
+      let price = '';
+      let isCustomPrice = false;
+      const priceMatch = l.match(/=\s*(\d+(\.\d+)?)/);
+      if (priceMatch && !isZeroQty) {
+        price = parseFloat(priceMatch[1]);
+      }
+
+      let namePart = l.split('=')[0].replace(/x\d+/i, '').replace(/\*\s*\d+.*$/i, '').replace(/[()]/g, '').trim();
+
+      if (namePart) {
+        const found = productDatabase.find(p => cleanText(p.Name) === cleanText(namePart));
+        if (!found && price !== '') {
+          isCustomPrice = true;
+        }
+        addItemRow(firstSection.id, namePart, qty, price, isCustomPrice);
+      }
     });
 
     updateSummary();
@@ -621,8 +863,12 @@ US 58 มม(80แผ่น) = 320
 
   function updateSummary() {
     const sections = document.querySelectorAll('.order-section-box');
-    sections.forEach(sec => {
+    const totalSectionsCount = sections.length;
+
+    sections.forEach((sec, idx) => {
       const sectionId = sec.id;
+      const boxIndex = idx + 1;
+      
       let customerLines = [];
       let internalLines = [];
       let internalSubtotal = 0;
@@ -631,31 +877,41 @@ US 58 มม(80แผ่น) = 320
       const itemRows = sec.querySelectorAll('.item-row');
       itemRows.forEach(row => {
         const nameInput = row.querySelector('.item-name').value.trim();
-        const qty = parseInt(row.querySelector('.item-qty').value) || 1;
+        const qtyInputVal = parseInt(row.querySelector('.item-qty').value);
+        const qty = isNaN(qtyInputVal) ? 0 : qtyInputVal;
+        const customPriceVal = row.querySelector('.item-custom-price').value;
         const discUnit = parseFloat(row.querySelector('.item-disc-unit').value) || 0;
         const discTotal = parseFloat(row.querySelector('.item-disc-total').value) || 0;
 
         if (nameInput) {
-          const found = productDatabase.find(p => cleanText(p.Name) === cleanText(nameInput));
-          const originalPrice = found ? found.Price : 0;
+          if (qty === 0) {
+            const outFormat = nameInput.includes('สินค้าหมด') ? `(${nameInput})` : `(${nameInput} = สินค้าหมด)`;
+            customerLines.push(outFormat);
+            internalLines.push(outFormat);
+            return;
+          }
+
+          let originalPrice = 0;
+          if (customPriceVal !== '' && !isNaN(parseFloat(customPriceVal))) {
+            originalPrice = parseFloat(customPriceVal);
+          } else {
+            const found = productDatabase.find(p => cleanText(p.Name) === cleanText(nameInput));
+            originalPrice = found ? found.Price : 0;
+          }
           
           const itemDiscount = (discUnit * qty) + discTotal;
           totalDiscount += itemDiscount;
 
-          // ราคาเต็มของรายการนี้
           const basePrice = originalPrice > 0 ? (originalPrice * qty) : ((originalPrice * qty) - itemDiscount);
           
-          // ราคาหลังลดสำหรับส่งลูกค้า
           let netLinePrice = basePrice - itemDiscount;
           if (netLinePrice < 0) netLinePrice = 0;
 
           internalSubtotal += basePrice;
           const qtyText = qty > 1 ? ` x${qty}` : '';
 
-          // กล่องลูกค้า: แสดงราคาที่ลดแล้วที่ตัวสินค้าโดยตรง
+          /* ปรับให้แสดงผลเป็น =ราคา ชิดติดเครื่องหมายเท่ากับ ไม่เว้นวรรค */
           customerLines.push(`${nameInput}${qtyText} =${netLinePrice}`);
-          
-          // กล่องเช็คยอด: แสดงราคาเต็มก่อนลด
           internalLines.push(`${nameInput}${qtyText} =${basePrice}`);
         }
       });
@@ -681,18 +937,22 @@ US 58 มม(80แผ่น) = 320
       const payment = sec.querySelector('.sec-payment-type').value;
       const grandTotal = netSubtotal + shipping;
 
-      // สร้างข้อความกล่องส่งลูกค้า
+      sec.dataset.grandTotal = grandTotal;
+
+      let boxHeader = totalSectionsCount > 1 ? `กล่องที่ ${boxIndex}:\n\n` : '';
+
       let customerText = "";
       if (customerLines.length > 0) {
+        customerText += boxHeader;
         customerText += customerLines.join('\n') + '\n\n';
         customerText += isFreeShipping ? `จัดส่งฟรี\n` : `ค่าจัดส่ง ${shipping} บ\n`;
         customerText += `รวม ${grandTotal} บ\n`;
         customerText += `${payment}`;
       }
 
-      // สร้างข้อความกล่องดูเอง (มีส่วนลดและค่าส่ง)
       let internalText = "";
       if (internalLines.length > 0) {
+        internalText += boxHeader;
         internalText += internalLines.join('\n') + '\n\n';
         internalText += isFreeShipping ? `จัดส่งฟรี\n` : `ค่าจัดส่ง ${shipping} บ\n`;
         if (totalDiscount > 0) {
@@ -708,7 +968,6 @@ US 58 มม(80แผ่น) = 320
       const internalGroup = document.getElementById('internal_group_' + sectionId);
       const internalTextEl = document.getElementById('internal_text_' + sectionId);
       
-      // แสดงกล่องเช็คยอดเฉพาะเมื่อมีการใส่ส่วนลดเข้ามา
       if (totalDiscount > 0) {
         internalGroup.style.display = 'block';
         if (internalTextEl) internalTextEl.innerText = internalText;
@@ -716,21 +975,6 @@ US 58 มม(80แผ่น) = 320
         internalGroup.style.display = 'none';
       }
     });
-
-    const outRows = document.querySelectorAll('#outOfStockContainer .item-row');
-    let outOfStockNames = [];
-    outRows.forEach(row => {
-      const name = row.querySelector('.out-item-name').value.trim();
-      if (name) outOfStockNames.push(name);
-    });
-
-    let outText = "";
-    if (outOfStockNames.length > 0) {
-      outText += `รับเท่านี้ก่อนไหมครับ\n`;
-      outText += outOfStockNames.join('\n') + `\n`;
-      outText += `สินค้าหมดครับ`;
-    }
-    document.getElementById('previewOutOfStockText').innerText = outText || "(ไม่มีสินค้าหมด)";
   }
 
   function copyToClipboard(elementId) {
@@ -749,6 +993,7 @@ US 58 มม(80แผ่น) = 320
   window.onload = function() {
     fetchExcelDirectly();
     addOrderSection();
+    renderDraftBar();
   };
 </script>
 
