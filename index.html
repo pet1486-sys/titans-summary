@@ -873,6 +873,7 @@ US 58 มม(80แผ่น) =320
       let internalLines = [];
       let internalSubtotal = 0;
       let totalDiscount = 0;
+      let hasValidItem = false;
 
       const itemRows = sec.querySelectorAll('.item-row');
       itemRows.forEach(row => {
@@ -890,6 +891,8 @@ US 58 มม(80แผ่น) =320
             internalLines.push(outFormat);
             return;
           }
+
+          hasValidItem = true;
 
           let originalPrice = 0;
           if (customPriceVal !== '' && !isNaN(parseFloat(customPriceVal))) {
@@ -910,7 +913,6 @@ US 58 มม(80แผ่น) =320
           internalSubtotal += basePrice;
           const qtyText = qty > 1 ? ` x${qty}` : '';
 
-          /* ปรับให้แสดงผลเป็น =ราคา ชิดติดเครื่องหมายเท่ากับ ไม่เว้นวรรค */
           customerLines.push(`${nameInput}${qtyText} =${netLinePrice}`);
           internalLines.push(`${nameInput}${qtyText} =${basePrice}`);
         }
@@ -921,10 +923,10 @@ US 58 มม(80แผ่น) =320
 
       const netSubtotal = internalSubtotal - totalDiscount;
 
-      if (netSubtotal >= 1460) {
+      if (netSubtotal >= 1460 && hasValidItem) {
         shippingTypeSelect.value = 'free';
         feeBox.style.display = 'none';
-      } else if (shippingTypeSelect.value === 'free' && netSubtotal < 1460 && customerLines.length > 0) {
+      } else if (shippingTypeSelect.value === 'free' && netSubtotal < 1460 && hasValidItem) {
         shippingTypeSelect.value = 'custom';
         feeBox.style.display = 'block';
       }
@@ -944,22 +946,31 @@ US 58 มม(80แผ่น) =320
       let customerText = "";
       if (customerLines.length > 0) {
         customerText += boxHeader;
-        customerText += customerLines.join('\n') + '\n\n';
-        customerText += isFreeShipping ? `จัดส่งฟรี\n` : `ค่าจัดส่ง ${shipping} บ\n`;
-        customerText += `รวม ${grandTotal} บ\n`;
-        customerText += `${payment}`;
+        customerText += customerLines.join('\n');
+        
+        // แสดงการสรุปยอดค่าส่งและเงินรวมเมื่อมีสินค้าสั่งซื้อ หรือมีการกำหนดยอดเงิน
+        if (hasValidItem || grandTotal > 0) {
+          customerText += '\n\n';
+          customerText += isFreeShipping ? `จัดส่งฟรี\n` : `ค่าจัดส่ง ${shipping} บ\n`;
+          customerText += `รวม ${grandTotal} บ\n`;
+          customerText += `${payment}`;
+        }
       }
 
       let internalText = "";
       if (internalLines.length > 0) {
         internalText += boxHeader;
-        internalText += internalLines.join('\n') + '\n\n';
-        internalText += isFreeShipping ? `จัดส่งฟรี\n` : `ค่าจัดส่ง ${shipping} บ\n`;
-        if (totalDiscount > 0) {
-          internalText += `ส่วนลด ${totalDiscount} บ\n`;
+        internalText += internalLines.join('\n');
+
+        if (hasValidItem || grandTotal > 0) {
+          internalText += '\n\n';
+          internalText += isFreeShipping ? `จัดส่งฟรี\n` : `ค่าจัดส่ง ${shipping} บ\n`;
+          if (totalDiscount > 0) {
+            internalText += `ส่วนลด ${totalDiscount} บ\n`;
+          }
+          internalText += `รวม ${grandTotal} บ\n`;
+          internalText += `${payment}`;
         }
-        internalText += `รวม ${grandTotal} บ\n`;
-        internalText += `${payment}`;
       }
       
       const prevTextEl = document.getElementById('preview_text_' + sectionId);
@@ -979,7 +990,7 @@ US 58 มม(80แผ่น) =320
 
   function copyToClipboard(elementId) {
     const text = document.getElementById(elementId).innerText;
-    if(!text || text.startsWith("(")) {
+    if(!text || text === "(ไม่มีรายการสั่งซื้อ)") {
       alert("ไม่มีข้อความให้คัดลอก กรุณาคีย์ข้อมูลก่อนครับ");
       return;
     }
