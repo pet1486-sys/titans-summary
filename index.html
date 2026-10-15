@@ -836,25 +836,32 @@ US 58 มม(80แผ่น) =320
         qty = 0;
         isZeroQty = true;
       } else {
-        const qtyMatch = l.match(/x(\d+)/i) || l.match(/\*\s*(\d+)/i);
+        // จับจำนวนเฉพาะส่วนท้ายชื่อสินค้า เช่น x2, *2 ก่อนถึงเครื่องหมาย =
+        const qtyMatch = l.match(/(?:x|\*)\s*(\d+)(?=\s*=|\s*$)/i);
         if (qtyMatch) qty = parseInt(qtyMatch[1]);
       }
 
-      let price = '';
+      let unitPrice = '';
       let isCustomPrice = false;
       const priceMatch = l.match(/=\s*(\d+(\.\d+)?)/);
       if (priceMatch && !isZeroQty) {
-        price = parseFloat(priceMatch[1]);
+        const totalPrice = parseFloat(priceMatch[1]);
+        // คำนวณหารราคาต่อชิ้นก่อนส่งเข้าฟอร์ม เพื่อป้องกันการคูณซ้ำซ้อนใน updateSummary
+        unitPrice = qty > 0 ? totalPrice / qty : totalPrice;
       }
 
-      let namePart = l.split('=')[0].replace(/x\d+/i, '').replace(/\*\s*\d+.*$/i, '').replace(/[()]/g, '').trim();
+      // ตัดส่วนจำนวนออกจากชื่อสินค้า
+      let namePart = l.split('=')[0]
+                     .replace(/(?:x|\*)\s*\d+\s*$/i, '')
+                     .replace(/[()]/g, '')
+                     .trim();
 
       if (namePart) {
         const found = productDatabase.find(p => cleanText(p.Name) === cleanText(namePart));
-        if (!found && price !== '') {
+        if (!found && unitPrice !== '') {
           isCustomPrice = true;
         }
-        addItemRow(firstSection.id, namePart, qty, price, isCustomPrice);
+        addItemRow(firstSection.id, namePart, qty, unitPrice, isCustomPrice);
       }
     });
 
@@ -948,7 +955,6 @@ US 58 มม(80แผ่น) =320
         customerText += boxHeader;
         customerText += customerLines.join('\n');
         
-        // แสดงการสรุปยอดค่าส่งและเงินรวมเมื่อมีสินค้าสั่งซื้อ หรือมีการกำหนดยอดเงิน
         if (hasValidItem || grandTotal > 0) {
           customerText += '\n\n';
           customerText += isFreeShipping ? `จัดส่งฟรี\n` : `ค่าจัดส่ง ${shipping} บ\n`;
